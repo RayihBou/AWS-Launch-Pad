@@ -6,6 +6,7 @@ import { LaunchpadAuth } from './constructs/auth';
 import { LaunchpadApi } from './constructs/api';
 import { LaunchpadAgent } from './constructs/agent';
 import { LaunchpadFrontend } from './constructs/frontend';
+import { LaunchpadGuardrail } from './constructs/guardrail';
 
 export interface LaunchpadStackProps extends cdk.StackProps {
   domainName?: string;
@@ -39,8 +40,17 @@ export class LaunchpadStack extends cdk.Stack {
       memorySize: 256,
     });
 
+    // Guardrail
+    const guardrail = new LaunchpadGuardrail(this, 'Guardrail');
+
     // Agent
-    const agent = new LaunchpadAgent(this, 'Agent', { monitoringHandler: monitoring, modelId: props.modelId, language: props.language });
+    const agent = new LaunchpadAgent(this, 'Agent', {
+      monitoringHandler: monitoring,
+      modelId: props.modelId,
+      language: props.language,
+      guardrailId: guardrail.guardrailId,
+      guardrailVersion: guardrail.guardrailVersion,
+    });
 
     // Set orchestrator env vars (after agent is created)
     orchestrator.addEnvironment('AGENT_ID', agent.agent.attrAgentId);

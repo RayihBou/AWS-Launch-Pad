@@ -5,11 +5,67 @@ from datetime import datetime, timedelta
 cloudwatch = boto3.client("cloudwatch")
 logs = boto3.client("logs")
 
+WRITE_ACTIONS = {"/create_alarm", "/enable_logging"}
+
+
+def get_manual_guide(api_path):
+    guides = {
+        "/create_alarm": {
+            "message": "Your current role (Viewer) does not have permission to create alarms.",
+            "console_steps": [
+                "Open the CloudWatch console at https://console.aws.amazon.com/cloudwatch/",
+                "In the navigation pane, choose Alarms > All alarms",
+                "Choose Create alarm",
+                "Choose Select metric and configure your metric",
+                "Set the threshold conditions",
+                "Configure notification actions (SNS topic)",
+                "Name the alarm and create it",
+            ],
+            "cli_command": "aws cloudwatch put-metric-alarm --alarm-name 'MyAlarm' --metric-name CPUUtilization --namespace AWS/EC2 --statistic Average --period 300 --threshold 80 --comparison-operator GreaterThanThreshold --evaluation-periods 2 --alarm-actions <SNS_TOPIC_ARN>",
+        },
+        "/enable_logging": {
+            "message": "Your current role (Viewer) does not have permission to enable logging.",
+            "console_steps": [
+                "Open the CloudWatch console at https://console.aws.amazon.com/cloudwatch/",
+                "In the navigation pane, choose Log groups",
+                "Choose Create log group",
+                "Enter a name and configure retention settings",
+                "Choose Create",
+            ],
+            "cli_command": "aws logs create-log-group --log-group-name '/my-app/logs' && aws logs put-retention-policy --log-group-name '/my-app/logs' --retention-in-days 30",
+        },
+    }
+    return guides.get(api_path, {
+        "message": "Your current role (Viewer) does not have permission for this action.",
+        "console_steps": ["Contact your administrator to request Operator access."],
+        "cli_command": "N/A",
+    })
+
+
+def make_response(action, api_path, result, status=200):
+    return {
+        "messageVersion": "1.0",
+        "response": {
+            "actionGroup": action,
+            "apiPath": api_path,
+            "httpMethod": "GET",
+            "httpStatusCode": status,
+            "responseBody": {
+                "application/json": {"body": json.dumps(result, default=str)}
+            },
+        },
+    }
+
 
 def handler(event, context):
     action = event.get("actionGroup")
     api_path = event.get("apiPath")
     parameters = {p["name"]: p["value"] for p in event.get("parameters", [])}
+    user_role = event.get("sessionAttributes", {}).get("userRole", "Viewer")
+
+    # Block write actions for non-Operator roles
+    if api_path in WRITE_ACTIONS and user_role != "Operator":
+        return make_response(action, api_path, get_manual_guide(api_path), 403)
 
     routes = {
         "/get_metrics": get_metrics,
@@ -19,23 +75,9 @@ def handler(event, context):
     }
 
     fn = routes.get(api_path)
-    if fn:
-        result = fn(parameters)
-    else:
-        result = {"error": f"Unknown apiPath: {api_path}"}
+    result = fn(parameters) if fn else {"error": f"Unknown apiPath: {api_path}"}
 
-    return {
-        "messageVersion": "1.0",
-        "response": {
-            "actionGroup": action,
-            "apiPath": api_path,
-            "httpMethod": "GET",
-            "httpStatusCode": 200,
-            "responseBody": {
-                "application/json": {"body": json.dumps(result, default=str)}
-            },
-        },
-    }
+    return make_response(action, api_path, result)
 
 
 def get_metrics(params):
