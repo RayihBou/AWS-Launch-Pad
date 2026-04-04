@@ -1,59 +1,63 @@
 # AWS LaunchPad
 
-AI-powered virtual assistant deployable in customer AWS accounts. Built on Amazon Bedrock Agent Core to drive GenAI service adoption across monitoring, security, modernization, and general AWS guidance.
+AI-powered virtual assistant deployable in customer AWS accounts. Built on Amazon Bedrock AgentCore with Strands Agents SDK to drive GenAI service adoption across monitoring, security, and general AWS guidance.
 
 ## Overview
 
-AWS LaunchPad provides a web-based chatbot that customers and partners can deploy in their own AWS accounts with a single `cdk deploy` command. The assistant leverages Amazon Bedrock to answer AWS questions, monitor infrastructure, assess security posture, and execute controlled actions — all through a conversational interface.
+AWS LaunchPad provides a web-based chatbot that customers and partners can deploy in their own AWS accounts with a single `cdk deploy` command. The assistant leverages Amazon Bedrock AgentCore Runtime with MCP-based tool servers to answer AWS questions, monitor infrastructure, assess security posture, and provide controlled guidance — all through a conversational interface.
 
 ## Key Features
 
-- **AWS General Assistant:** Answer questions about AWS services, architecture, and best practices via RAG-powered Knowledge Base
-- **Monitoring:** Query CloudWatch metrics, alarms, logs, and health checks
-- **Security:** Review Security Hub findings, GuardDuty alerts, compliance status, and IAM configuration
-- **Account Management:** List and describe resources (EC2, RDS, S3, Lambda), query costs via Cost Explorer
-- **Controlled Actions:** Execute approved operations (create alarms, enable logging, apply remediations) with user confirmation
+- **AWS Knowledge:** Real-time access to latest AWS documentation, API references, best practices, and Well-Architected guidance
+- **AWS Pricing:** Accurate, real-time pricing information for all AWS services
+- **Well-Architected Security:** Security posture assessment against the Well-Architected Framework Security Pillar
+- **CloudWatch Monitoring:** Metrics, alarms, logs analysis and operational troubleshooting
+- **Controlled Actions:** Role-based access (Viewer/Operator) with manual guidance for restricted users
 
 ## Architecture
 
 ```mermaid
 graph LR
     A[Browser] --> B[CloudFront]
-    B --> C[API Gateway<br/>WebSocket]
-    C --> D[Lambda<br/>Orchestrator]
-    D --> E[Bedrock Agent Core]
-    E --> F[Knowledge Base<br/>RAG]
-    E --> G[Action Groups<br/>AWS APIs]
-    F --> H[Aurora PostgreSQL<br/>Serverless v2<br/>pgvector]
-    G --> I[CloudWatch]
-    G --> J[Security Hub]
-    G --> K[GuardDuty]
-    G --> L[Cost Explorer]
+    B --> C[AgentCore<br/>Runtime]
+    C --> D[Strands<br/>Agents SDK]
+    D --> E[Claude Sonnet 4<br/>Bedrock]
+    D --> F[AgentCore<br/>Gateway]
+    F --> G[AWS Knowledge<br/>MCP Server]
+    F --> H[AWS Pricing<br/>MCP Server]
+    F --> I[WA Security<br/>MCP Server]
+    F --> J[CloudWatch<br/>MCP Server]
+    C --> K[AgentCore<br/>Memory]
+    C --> L[AgentCore<br/>Policy]
+    C --> M[AgentCore<br/>Identity]
 ```
 
 ## Tech Stack
 
 | Component | Service |
-|-----------|---------|
-| Frontend | React + Amplify Hosting |
-| API | API Gateway (WebSocket) |
-| Orchestrator | Lambda (Python) |
-| Agent | Amazon Bedrock Agent Core |
-| Model | Claude Sonnet (Bedrock) |
-| Knowledge Base | Bedrock KB + Aurora PostgreSQL Serverless v2 (pgvector) |
-| AWS Actions | Lambda Action Groups |
-| IaC | CDK (TypeScript) |
-| Auth | Amazon Cognito |
+|-----------|--------|
+| Frontend | React + S3 + CloudFront |
+| Agent Runtime | Amazon Bedrock AgentCore Runtime |
+| Agent Framework | Strands Agents SDK |
+| Model | Claude Sonnet 4 (configurable) |
+| Tools | AgentCore Gateway + MCP Servers |
+| Auth | AgentCore Identity + Amazon Cognito |
+| Security | AgentCore Policy (Cedar) + Bedrock Guardrails |
+| Memory | AgentCore Memory (short-term + long-term) |
+| Observability | AgentCore Observability (CloudWatch) |
+| IaC | AWS CDK (TypeScript) |
 
 ## Security
 
 - No static credentials — all components use IAM Roles with temporary credentials (STS)
 - Cognito authentication with optional MFA and SAML/OIDC federation
+- AgentCore Policy with Cedar for fine-grained authorization of agent actions
 - Two permission levels:
-  - **Viewer:** Read-only (query metrics, list resources, view findings)
+  - **Viewer:** Read-only (query metrics, view documentation, pricing lookups)
   - **Operator:** Read + controlled actions (create alarms, enable logging, apply remediations)
-- Least privilege IAM policies per Lambda function
+- Least privilege IAM policies per component
 - Encryption in transit (TLS 1.2+) and at rest (KMS)
+- Bedrock Guardrails for content filtering and responsible AI
 - CloudTrail audit logging for all agent-initiated API calls
 - Destructive actions require explicit user confirmation
 
@@ -74,10 +78,15 @@ npm install
 cdk deploy
 ```
 
-The stack outputs the application URL. Custom domain is optional — pass it as a CDK context parameter:
+The stack outputs the application URL. Custom domain and additional parameters can be passed as CDK context:
 
 ```bash
-cdk deploy -c domainName=assistant.example.com -c hostedZoneId=Z0123456789
+cdk deploy \
+  -c domainName=assistant.example.com \
+  -c hostedZoneId=Z0123456789 \
+  -c zoneName=example.com \
+  -c language=en \
+  -c modelId=us.anthropic.claude-sonnet-4-20250514-v1:0
 ```
 
 ## Development Phases

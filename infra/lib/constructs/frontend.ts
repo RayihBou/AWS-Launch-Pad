@@ -1,3 +1,4 @@
+import * as path from 'path';
 import { Construct } from 'constructs';
 import * as cdk from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -6,10 +7,12 @@ import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 
 export interface LaunchpadFrontendProps {
   domainName?: string;
   hostedZoneId?: string;
+  zoneName?: string;
 }
 
 export class LaunchpadFrontend extends Construct {
@@ -31,7 +34,7 @@ export class LaunchpadFrontend extends Construct {
 
     const distributionProps: cloudfront.DistributionProps = {
       defaultBehavior: {
-        origin: new origins.S3Origin(this.bucket, { originAccessIdentity: oai }),
+        origin: origins.S3BucketOrigin.withOriginAccessIdentity(this.bucket, { originAccessIdentity: oai }),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },
       defaultRootObject: 'index.html',
@@ -46,7 +49,7 @@ export class LaunchpadFrontend extends Construct {
     if (props.domainName && props.hostedZoneId) {
       const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'Zone', {
         hostedZoneId: props.hostedZoneId,
-        zoneName: props.domainName,
+        zoneName: props.zoneName || props.domainName,
       });
 
       const certificate = new acm.Certificate(this, 'Cert', {
@@ -68,6 +71,13 @@ export class LaunchpadFrontend extends Construct {
     } else {
       this.distribution = new cloudfront.Distribution(this, 'Distribution', distributionProps);
     }
+
+    new s3deploy.BucketDeployment(this, 'DeployAssets', {
+      sources: [s3deploy.Source.asset(path.join(__dirname, '../../../frontend/dist'))],
+      destinationBucket: this.bucket,
+      distribution: this.distribution,
+      distributionPaths: ['/*'],
+    });
 
     this.distributionUrl = `https://${this.distribution.distributionDomainName}`;
   }

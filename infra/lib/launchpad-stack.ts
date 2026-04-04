@@ -11,6 +11,7 @@ import { LaunchpadGuardrail } from './constructs/guardrail';
 export interface LaunchpadStackProps extends cdk.StackProps {
   domainName?: string;
   hostedZoneId?: string;
+  zoneName?: string;
   modelId?: string;
   language?: string;
 }
@@ -67,6 +68,7 @@ export class LaunchpadStack extends cdk.Stack {
     const frontend = new LaunchpadFrontend(this, 'Frontend', {
       domainName: props.domainName,
       hostedZoneId: props.hostedZoneId,
+      zoneName: props.zoneName,
     });
 
     // Grant orchestrator bedrock:InvokeAgent

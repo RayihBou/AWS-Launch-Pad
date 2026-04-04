@@ -31,21 +31,16 @@ export class LaunchpadAgent extends Construct {
       natGateways: 1,
     });
 
-    // Aurora PostgreSQL Serverless v2 with pgvector
-    const parameterGroup = new rds.ParameterGroup(this, 'PgParams', {
-      engine: rds.DatabaseClusterEngine.auroraPostgres({ version: rds.AuroraPostgresEngineVersion.VER_15_4 }),
-      parameters: { 'shared_preload_libraries': 'pgvector' },
-    });
-
+    // Aurora PostgreSQL Serverless v2 (pgvector enabled via CREATE EXTENSION at app level)
     this.cluster = new rds.DatabaseCluster(this, 'AuroraCluster', {
-      engine: rds.DatabaseClusterEngine.auroraPostgres({ version: rds.AuroraPostgresEngineVersion.VER_15_4 }),
-      parameterGroup,
+      engine: rds.DatabaseClusterEngine.auroraPostgres({ version: rds.AuroraPostgresEngineVersion.VER_16_6 }),
       serverlessV2MinCapacity: 0.5,
       serverlessV2MaxCapacity: 4,
       writer: rds.ClusterInstance.serverlessV2('Writer'),
       vpc: this.vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       defaultDatabaseName: 'launchpad',
+      enableDataApi: true,
     });
 
     // Bedrock Agent IAM Role
@@ -111,7 +106,7 @@ export class LaunchpadAgent extends Construct {
 
     this.agent = new bedrock.CfnAgent(this, 'Agent', {
       agentName: 'launchpad-assistant',
-      foundationModel: props.modelId ?? 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+      foundationModel: props.modelId ?? 'anthropic.claude-sonnet-4-20250514-v1:0',
       instruction,
       idleSessionTtlInSeconds: 1800,
       agentResourceRoleArn: agentRole.roleArn,
@@ -123,6 +118,42 @@ export class LaunchpadAgent extends Construct {
         actionGroupName: 'MonitoringActions',
         actionGroupExecutor: { lambda: props.monitoringHandler.functionArn },
         description: 'Actions for AWS monitoring and observability',
+        functionSchema: {
+          functions: [
+            {
+              name: 'get_metrics',
+              description: 'Get CloudWatch metric data for a specific namespace and metric name',
+              parameters: {
+                namespace: { type: 'string', description: 'CloudWatch namespace (e.g. AWS/EC2, AWS/RDS)', required: true },
+                metric_name: { type: 'string', description: 'Metric name (e.g. CPUUtilization)', required: true },
+                dimension_name: { type: 'string', description: 'Dimension name (e.g. InstanceId)', required: false },
+                dimension_value: { type: 'string', description: 'Dimension value (e.g. i-0abc123)', required: false },
+              },
+            },
+            {
+              name: 'list_alarms',
+              description: 'List CloudWatch alarms and their current states',
+              parameters: {
+                state: { type: 'string', description: 'Filter by alarm state: OK, ALARM, or INSUFFICIENT_DATA', required: false },
+              },
+            },
+            {
+              name: 'get_log_events',
+              description: 'Get recent log events from a CloudWatch log group',
+              parameters: {
+                log_group: { type: 'string', description: 'Log group name (e.g. /aws/lambda/my-function)', required: true },
+                filter_pattern: { type: 'string', description: 'Filter pattern to search for in logs', required: false },
+              },
+            },
+            {
+              name: 'list_log_groups',
+              description: 'List available CloudWatch log groups',
+              parameters: {
+                prefix: { type: 'string', description: 'Filter log groups by name prefix', required: false },
+              },
+            },
+          ],
+        },
       }],
     });
 
