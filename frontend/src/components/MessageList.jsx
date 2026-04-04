@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { t } from '../i18n';
 import './MessageList.css';
 
@@ -14,7 +16,11 @@ export default function MessageList({ messages, isLoading }) {
       {messages.map((msg, i) => (
         <div key={i} className={`message message--${msg.role}`}>
           <span className="message__label">{msg.role === 'user' ? t('chat.you') : t('chat.assistant')}</span>
-          <div className="message__bubble">{msg.content}</div>
+          <div className="message__bubble">
+            {msg.role === 'assistant'
+              ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+              : msg.content}
+          </div>
         </div>
       ))}
       {isLoading && (

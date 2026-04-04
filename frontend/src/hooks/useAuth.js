@@ -19,7 +19,11 @@ export default function useAuth() {
     const currentUser = userPool.getCurrentUser();
     if (currentUser) {
       currentUser.getSession((err, session) => {
-        if (session?.isValid()) setUser({ email: currentUser.getUsername() });
+        if (session?.isValid()) {
+          const payload = session.getIdToken().decodePayload();
+          const email = payload.email || currentUser.getUsername();
+          setUser({ email: email.split('@')[0] });
+        }
         setLoading(false);
       });
     } else {
@@ -33,8 +37,10 @@ export default function useAuth() {
     const authDetails = new AuthenticationDetails({ Username: email, Password: password });
 
     authUser.authenticateUser(authDetails, {
-      onSuccess: () => {
-        setUser({ email });
+      onSuccess: (session) => {
+        const payload = session.getIdToken().decodePayload();
+        const em = payload.email || email;
+        setUser({ email: em.split('@')[0] });
         setNewPasswordRequired(false);
       },
       onFailure: (err) => setError(err.message || 'Login failed'),
@@ -49,8 +55,10 @@ export default function useAuth() {
     if (!cognitoUser) return;
     setError('');
     cognitoUser.completeNewPasswordChallenge(newPassword, {}, {
-      onSuccess: () => {
-        setUser({ email: cognitoUser.getUsername() });
+      onSuccess: (session) => {
+        const payload = session.getIdToken().decodePayload();
+        const em = payload.email || cognitoUser.getUsername();
+        setUser({ email: em.split('@')[0] });
         setNewPasswordRequired(false);
       },
       onFailure: (err) => setError(err.message || 'Password change failed'),

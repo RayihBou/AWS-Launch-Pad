@@ -1,9 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { CognitoUserPool } from 'amazon-cognito-identity-js';
 import { config } from '../config';
 import { t } from '../i18n';
 
-// Get JWT token from current Cognito session
 function getIdToken() {
   if (!config.userPoolId) return null;
   const pool = new CognitoUserPool({
@@ -25,18 +24,42 @@ export default function useChat() {
   const [messages, setMessages] = useState([]);
   const [isConnected, setIsConnected] = useState(!!config.agentEndpoint);
   const [isLoading, setIsLoading] = useState(false);
+  const streamRef = useRef(null);
+
+  const streamText = useCallback((fullText) => {
+    if (streamRef.current) clearInterval(streamRef.current);
+    let i = 0;
+    const chunkSize = 3;
+    // Add empty assistant message
+    setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
+    streamRef.current = setInterval(() => {
+      i += chunkSize;
+      if (i >= fullText.length) {
+        setMessages((prev) => {
+          const copy = [...prev];
+          copy[copy.length - 1] = { role: 'assistant', content: fullText };
+          return copy;
+        });
+        clearInterval(streamRef.current);
+        streamRef.current = null;
+        return;
+      }
+      setMessages((prev) => {
+        const copy = [...prev];
+        copy[copy.length - 1] = { role: 'assistant', content: fullText.slice(0, i) };
+        return copy;
+      });
+    }, 12);
+  }, []);
 
   const sendMessage = useCallback(async (text) => {
-    if (!text.trim()) return;
+    if (!text.trim() || isLoading) return;
 
     setMessages((prev) => [...prev, { role: 'user', content: text }]);
     setIsLoading(true);
 
     if (!config.agentEndpoint) {
-      setMessages((prev) => [...prev, {
-        role: 'assistant',
-        content: t('chat.welcome'),
-      }]);
+      streamText(t('chat.welcome'));
       setIsLoading(false);
       return;
     }
@@ -53,10 +76,8 @@ export default function useChat() {
       });
 
       const data = await response.json();
-      setMessages((prev) => [...prev, {
-        role: 'assistant',
-        content: data.output?.text || data.body || JSON.stringify(data),
-      }]);
+      const content = data.output?.text || data.body || JSON.stringify(data);
+      streamText(content);
     } catch (err) {
       setMessages((prev) => [...prev, {
         role: 'assistant',
@@ -65,7 +86,7 @@ export default function useChat() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isLoading, streamText]);
 
   return { messages, sendMessage, isConnected, isLoading };
 }
