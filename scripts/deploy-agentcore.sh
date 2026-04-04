@@ -181,40 +181,7 @@ aws bedrock-agentcore create-runtime \
   --container-configuration "{\"imageUri\":\"${ECR_REPO}:latest\",\"environmentVariables\":{\"MODEL_ID\":\"${MODEL_ID}\",\"LANGUAGE\":\"${LANGUAGE}\",\"GATEWAY_ENDPOINT\":\"${GATEWAY_ENDPOINT}\",\"MEMORY_STORE_ID\":\"${MEMORY_STORE_ID}\",\"GUARDRAIL_ID\":\"${GUARDRAIL_ID}\"}}" \
   --region "$REGION" 2>/dev/null && echo "Runtime deployed" || echo "Runtime may already exist"
 
-# Step 5: Create Cognito users
-echo ""
-echo "--- Step 5: Creating Cognito users ---"
-USER_POOL_CLIENT_ID=$(get_output "UserPoolClientId")
-
-# Operator user
-aws cognito-idp admin-create-user \
-  --user-pool-id "$USER_POOL_ID" \
-  --username "rayihbou@amazon.com" \
-  --temporary-password "LaunchPad2026!" \
-  --user-attributes Name=email,Value=rayihbou@amazon.com Name=email_verified,Value=true \
-  --region "$REGION" 2>/dev/null && echo "Created: rayihbou@amazon.com (Operator)" || echo "User rayihbou@amazon.com already exists"
-
-aws cognito-idp admin-add-user-to-group \
-  --user-pool-id "$USER_POOL_ID" \
-  --username "rayihbou@amazon.com" \
-  --group-name "Operator" \
-  --region "$REGION" 2>/dev/null && echo "Assigned to group: Operator" || echo "Already in Operator group"
-
-# Viewer user (for testing restricted access)
-aws cognito-idp admin-create-user \
-  --user-pool-id "$USER_POOL_ID" \
-  --username "viewer@launchpad.test" \
-  --temporary-password "LaunchPad2026!" \
-  --user-attributes Name=email,Value=viewer@launchpad.test Name=email_verified,Value=true \
-  --region "$REGION" 2>/dev/null && echo "Created: viewer@launchpad.test (Viewer)" || echo "User viewer@launchpad.test already exists"
-
-aws cognito-idp admin-add-user-to-group \
-  --user-pool-id "$USER_POOL_ID" \
-  --username "viewer@launchpad.test" \
-  --group-name "Viewer" \
-  --region "$REGION" 2>/dev/null && echo "Assigned to group: Viewer" || echo "Already in Viewer group"
-
-# Step 6: Output summary
+# Step 5: Output summary
 echo ""
 echo "=== Deployment Complete ==="
 echo "CloudFront URL: $CLOUDFRONT_URL"
@@ -223,9 +190,7 @@ echo "Gateway Endpoint: $GATEWAY_ENDPOINT"
 echo "Memory Store ID: $MEMORY_STORE_ID"
 echo "Cognito User Pool: $USER_POOL_ID"
 echo ""
-echo "=== Test Users ==="
-echo "Operator: rayihbou@amazon.com / LaunchPad2026! (change on first login)"
-echo "Viewer:   viewer@launchpad.test / LaunchPad2026! (change on first login)"
+echo "Next: Create users with scripts/create-users.sh or via self-signup in the frontend"
 echo ""
 echo "NOTE: AgentCore API names may vary. Check the latest AWS CLI reference"
 echo "for bedrock-agentcore commands if any step fails."

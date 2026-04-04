@@ -37,3 +37,4 @@ aws-exports.js
 # Logs
 *.log
 docs/.*bkp
+scripts/create-users.sh
