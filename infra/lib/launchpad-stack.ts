@@ -3,6 +3,7 @@ import { Construct } from 'constructs';
 import { LaunchpadAuth } from './constructs/auth';
 import { LaunchpadFrontend } from './constructs/frontend';
 import { LaunchpadGuardrail } from './constructs/guardrail';
+import { McpLambdas } from './constructs/mcp-lambdas';
 
 export interface LaunchpadStackProps extends cdk.StackProps {
   domainName?: string;
@@ -31,5 +32,11 @@ export class LaunchpadStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'Language', { value: props.language ?? 'en' });
     new cdk.CfnOutput(this, 'FrontendBucket', { value: frontend.bucket.bucketName });
     new cdk.CfnOutput(this, 'DistributionId', { value: frontend.distribution.distributionId });
+
+    const mcpLambdas = new McpLambdas(this, 'McpLambdas');
+    new cdk.CfnOutput(this, 'CloudWatchMcpArn', { value: mcpLambdas.cloudwatchFn.functionArn });
+    new cdk.CfnOutput(this, 'PricingMcpArn', { value: mcpLambdas.pricingFn.functionArn });
+    new cdk.CfnOutput(this, 'WaSecurityMcpArn', { value: mcpLambdas.waSecurityFn.functionArn });
+    new cdk.CfnOutput(this, 'CloudTrailMcpArn', { value: mcpLambdas.cloudtrailFn.functionArn });
   }
 }
