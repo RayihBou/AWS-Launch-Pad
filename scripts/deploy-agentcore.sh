@@ -16,6 +16,32 @@ echo "Region: $REGION"
 echo "Model: $MODEL_ID"
 echo "Language: $LANGUAGE"
 
+# Step 0: Verify Bedrock model access
+echo ""
+echo "--- Step 0: Verifying Bedrock model access ---"
+MODEL_STATUS=$(aws bedrock get-foundation-model \
+  --model-identifier "$MODEL_ID" \
+  --region "$REGION" \
+  --query 'modelDetails.modelLifecycle.status' \
+  --output text 2>/dev/null || echo "NOT_FOUND")
+
+if [ "$MODEL_STATUS" = "NOT_FOUND" ]; then
+  echo "ERROR: Model $MODEL_ID not found in region $REGION"
+  echo "Please enable model access in the Bedrock console:"
+  echo "  https://console.aws.amazon.com/bedrock/home?region=${REGION}#/modelaccess"
+  exit 1
+elif [ "$MODEL_STATUS" != "ACTIVE" ]; then
+  echo "WARNING: Model $MODEL_ID status is $MODEL_STATUS (not ACTIVE)"
+  echo "Attempting to enable model access..."
+  aws bedrock create-foundation-model-agreement \
+    --model-id "$MODEL_ID" \
+    --region "$REGION" 2>/dev/null || true
+  echo "If model access fails, enable it manually in the Bedrock console:"
+  echo "  https://console.aws.amazon.com/bedrock/home?region=${REGION}#/modelaccess"
+else
+  echo "Model $MODEL_ID is ACTIVE"
+fi
+
 # Read CDK outputs
 echo ""
 echo "--- Reading CDK stack outputs ---"
@@ -155,7 +181,40 @@ aws bedrock-agentcore create-runtime \
   --container-configuration "{\"imageUri\":\"${ECR_REPO}:latest\",\"environmentVariables\":{\"MODEL_ID\":\"${MODEL_ID}\",\"LANGUAGE\":\"${LANGUAGE}\",\"GATEWAY_ENDPOINT\":\"${GATEWAY_ENDPOINT}\",\"MEMORY_STORE_ID\":\"${MEMORY_STORE_ID}\",\"GUARDRAIL_ID\":\"${GUARDRAIL_ID}\"}}" \
   --region "$REGION" 2>/dev/null && echo "Runtime deployed" || echo "Runtime may already exist"
 
-# Step 5: Output summary
+# Step 5: Create Cognito users
+echo ""
+echo "--- Step 5: Creating Cognito users ---"
+USER_POOL_CLIENT_ID=$(get_output "UserPoolClientId")
+
+# Operator user
+aws cognito-idp admin-create-user \
+  --user-pool-id "$USER_POOL_ID" \
+  --username "rayihbou@amazon.com" \
+  --temporary-password "LaunchPad2026!" \
+  --user-attributes Name=email,Value=rayihbou@amazon.com Name=email_verified,Value=true \
+  --region "$REGION" 2>/dev/null && echo "Created: rayihbou@amazon.com (Operator)" || echo "User rayihbou@amazon.com already exists"
+
+aws cognito-idp admin-add-user-to-group \
+  --user-pool-id "$USER_POOL_ID" \
+  --username "rayihbou@amazon.com" \
+  --group-name "Operator" \
+  --region "$REGION" 2>/dev/null && echo "Assigned to group: Operator" || echo "Already in Operator group"
+
+# Viewer user (for testing restricted access)
+aws cognito-idp admin-create-user \
+  --user-pool-id "$USER_POOL_ID" \
+  --username "viewer@launchpad.test" \
+  --temporary-password "LaunchPad2026!" \
+  --user-attributes Name=email,Value=viewer@launchpad.test Name=email_verified,Value=true \
+  --region "$REGION" 2>/dev/null && echo "Created: viewer@launchpad.test (Viewer)" || echo "User viewer@launchpad.test already exists"
+
+aws cognito-idp admin-add-user-to-group \
+  --user-pool-id "$USER_POOL_ID" \
+  --username "viewer@launchpad.test" \
+  --group-name "Viewer" \
+  --region "$REGION" 2>/dev/null && echo "Assigned to group: Viewer" || echo "Already in Viewer group"
+
+# Step 6: Output summary
 echo ""
 echo "=== Deployment Complete ==="
 echo "CloudFront URL: $CLOUDFRONT_URL"
@@ -163,6 +222,10 @@ echo "Gateway ID: $GATEWAY_ID"
 echo "Gateway Endpoint: $GATEWAY_ENDPOINT"
 echo "Memory Store ID: $MEMORY_STORE_ID"
 echo "Cognito User Pool: $USER_POOL_ID"
+echo ""
+echo "=== Test Users ==="
+echo "Operator: rayihbou@amazon.com / LaunchPad2026! (change on first login)"
+echo "Viewer:   viewer@launchpad.test / LaunchPad2026! (change on first login)"
 echo ""
 echo "NOTE: AgentCore API names may vary. Check the latest AWS CLI reference"
 echo "for bedrock-agentcore commands if any step fails."
