@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { config } from '../config';
+import { t } from '../i18n';
 
 const MAX_RECONNECT = 3;
 
@@ -44,7 +45,7 @@ export default function useWebSocket() {
           setIsLoading(false);
         } else if (parsed.type === 'error') {
           chunkBuffer.current = '';
-          setMessages((prev) => [...prev, { role: 'assistant', content: parsed.data || 'An error occurred.' }]);
+          setMessages((prev) => [...prev, { role: 'assistant', content: parsed.data || t('chat.error') }]);
           setIsLoading(false);
         }
       } catch {

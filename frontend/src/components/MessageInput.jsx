@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { t } from '../i18n';
 import './MessageInput.css';
 
 export default function MessageInput({ onSend, disabled, isConnected }) {
@@ -19,7 +20,7 @@ export default function MessageInput({ onSend, disabled, isConnected }) {
 
   return (
     <div className="message-input">
-      {!isConnected && <div className="message-input__status">Connecting...</div>}
+      {!isConnected && <div className="message-input__status">{t('chat.connecting')}</div>}
       <div className="message-input__row">
         <input
           className="message-input__field"
@@ -27,17 +28,17 @@ export default function MessageInput({ onSend, disabled, isConnected }) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask me about your AWS environment..."
+          placeholder={t('chat.placeholder')}
           disabled={disabled}
-          aria-label="Message input"
+          aria-label={t('chat.placeholder')}
         />
         <button
           className="message-input__send"
           onClick={handleSend}
           disabled={disabled || !text.trim()}
-          aria-label="Send message"
+          aria-label={t('chat.send')}
         >
-          Send
+          {t('chat.send')}
         </button>
       </div>
     </div>

@@ -11,6 +11,7 @@ export interface LaunchpadStackProps extends cdk.StackProps {
   domainName?: string;
   hostedZoneId?: string;
   modelId?: string;
+  language?: string;
 }
 
 export class LaunchpadStack extends cdk.Stack {
@@ -39,7 +40,7 @@ export class LaunchpadStack extends cdk.Stack {
     });
 
     // Agent
-    const agent = new LaunchpadAgent(this, 'Agent', { monitoringHandler: monitoring, modelId: props.modelId });
+    const agent = new LaunchpadAgent(this, 'Agent', { monitoringHandler: monitoring, modelId: props.modelId, language: props.language });
 
     // Set orchestrator env vars (after agent is created)
     orchestrator.addEnvironment('AGENT_ID', agent.agent.attrAgentId);
@@ -79,5 +80,6 @@ export class LaunchpadStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'UserPoolId', { value: auth.userPool.userPoolId });
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: auth.userPoolClient.userPoolClientId });
     new cdk.CfnOutput(this, 'AgentId', { value: agent.agent.attrAgentId });
+    new cdk.CfnOutput(this, 'Language', { value: props.language ?? 'en' });
   }
 }

@@ -9,6 +9,7 @@ import * as bedrock from 'aws-cdk-lib/aws-bedrock';
 export interface LaunchpadAgentProps {
   monitoringHandler: lambda.Function;
   modelId?: string;
+  language?: string;
 }
 
 export class LaunchpadAgent extends Construct {
@@ -59,10 +60,13 @@ export class LaunchpadAgent extends Construct {
     });
 
     // Bedrock Agent
+    const languageNames: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese' };
+    const languageName = languageNames[props.language ?? 'en'] ?? 'English';
+
     this.agent = new bedrock.CfnAgent(this, 'Agent', {
       agentName: 'launchpad-assistant',
       foundationModel: props.modelId ?? 'anthropic.claude-3-5-sonnet-20241022-v2:0',
-      instruction: 'You are an AWS operations assistant that helps with monitoring, security analysis, and modernization recommendations for cloud infrastructure.',
+      instruction: `You are an AWS cloud operations assistant that helps users with monitoring, security, modernization, and general AWS guidance. You have access to CloudWatch for monitoring metrics, alarms, and logs. Always provide clear, actionable responses. You MUST respond in ${languageName} language.`,
       idleSessionTtlInSeconds: 1800,
       agentResourceRoleArn: agentRole.roleArn,
       actionGroups: [{

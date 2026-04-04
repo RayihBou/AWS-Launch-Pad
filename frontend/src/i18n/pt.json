@@ -1,0 +1,17 @@
+{
+  "header": {
+    "title": "AWS LaunchPad",
+    "subtitle": "Assistente de Nuvem com IA"
+  },
+  "chat": {
+    "placeholder": "Pergunte sobre seu ambiente AWS...",
+    "send": "Enviar",
+    "connecting": "Conectando...",
+    "connected": "Conectado",
+    "disconnected": "Desconectado",
+    "you": "Você",
+    "assistant": "Assistente",
+    "welcome": "Bem-vindo! Sou seu assistente de nuvem AWS. Pergunte sobre monitoramento, segurança ou qualquer tema AWS.",
+    "error": "Ocorreu um erro. Tente novamente."
+  }
+}

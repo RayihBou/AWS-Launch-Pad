@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import './Header.css';
 
 export default function Header() {
@@ -9,8 +10,8 @@ export default function Header() {
         alt="AWS"
       />
       <div>
-        <h1 className="header__title">AWS LaunchPad</h1>
-        <p className="header__subtitle">AI-Powered Cloud Assistant</p>
+        <h1 className="header__title">{t('header.title')}</h1>
+        <p className="header__subtitle">{t('header.subtitle')}</p>
       </div>
     </header>
   );
