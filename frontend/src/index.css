@@ -1,0 +1,31 @@
+:root {
+  --color-background-primary: #0f1419;
+  --color-background-secondary: #1a1f26;
+  --color-background-tertiary: #242b33;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #b0b8c1;
+  --color-aws-orange: #ff9900;
+  --color-border: #3d4852;
+  --font-family: 'Amazon Ember', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+  font-family: var(--font-family);
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+}

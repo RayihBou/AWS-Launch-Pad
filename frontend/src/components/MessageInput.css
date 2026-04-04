@@ -1,0 +1,64 @@
+.message-input {
+  flex-shrink: 0;
+  padding: 14px 20px;
+  background: var(--color-background-tertiary);
+  border-top: 1px solid var(--color-border);
+}
+
+.message-input__status {
+  font-size: 0.75rem;
+  color: var(--color-aws-orange);
+  margin-bottom: 8px;
+}
+
+.message-input__row {
+  display: flex;
+  gap: 10px;
+}
+
+.message-input__field {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  font-family: var(--font-family);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.message-input__field::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.message-input__field:focus {
+  border-color: var(--color-aws-orange);
+}
+
+.message-input__field:disabled {
+  opacity: 0.5;
+}
+
+.message-input__send {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-aws-orange);
+  color: #0f1419;
+  font-family: var(--font-family);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.message-input__send:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.message-input__send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

@@ -1,0 +1,25 @@
+.header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #232f3e, #1a252f);
+  border-bottom: 2px solid var(--color-aws-orange);
+  flex-shrink: 0;
+}
+
+.header__logo {
+  width: 59px;
+  height: 35px;
+}
+
+.header__title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.header__subtitle {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
