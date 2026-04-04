@@ -36,3 +36,4 @@ aws-exports.js
 
 # Logs
 *.log
+docs/.*bkp

@@ -18,7 +18,7 @@ AWS LaunchPad provides a web-based chatbot that customers and partners can deplo
 
 ```
 Browser → Amplify Hosting (CloudFront) → API Gateway (WebSocket) → Lambda → Bedrock Agent Core
-                                                                              ├── Knowledge Base (RAG)
+                                                                              ├── Knowledge Base (RAG + Aurora PostgreSQL pgvector)
                                                                               └── Action Groups (AWS APIs)
 ```
 
@@ -31,7 +31,7 @@ Browser → Amplify Hosting (CloudFront) → API Gateway (WebSocket) → Lambda 
 | Orchestrator | Lambda (Python) |
 | Agent | Amazon Bedrock Agent Core |
 | Model | Claude Sonnet (Bedrock) |
-| Knowledge Base | Bedrock KB + OpenSearch Serverless |
+| Knowledge Base | Bedrock KB + Aurora PostgreSQL Serverless v2 (pgvector) |
 | AWS Actions | Lambda Action Groups |
 | IaC | CDK (TypeScript) |
 | Auth | Amazon Cognito |
