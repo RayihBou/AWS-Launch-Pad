@@ -1,14 +1,8 @@
-FROM python:3.12-slim
+FROM public.ecr.aws/lambda/python:3.12
 
 WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
+RUN pip install --no-cache-dir boto3
 COPY app.py .
 
-ENV MODEL_ID=anthropic.claude-sonnet-4-20250514-v1:0
-ENV LANGUAGE=en
-ENV GATEWAY_ENDPOINT=""
-
+EXPOSE 8080
 CMD ["python", "app.py"]

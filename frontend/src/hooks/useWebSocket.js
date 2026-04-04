@@ -16,7 +16,7 @@ function getIdToken() {
   return new Promise((resolve) => {
     user.getSession((err, session) => {
       if (err || !session?.isValid()) { resolve(null); return; }
-      resolve(session.getIdToken().getJwtToken());
+      resolve(session.getAccessToken().getJwtToken());
     });
   });
 }
