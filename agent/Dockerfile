@@ -1,7 +1,13 @@
-FROM public.ecr.aws/lambda/python:3.12
+FROM python:3.12-slim
 
 WORKDIR /app
-RUN pip install --no-cache-dir boto3
+
+RUN pip install --no-cache-dir \
+    strands-agents \
+    strands-agents-tools \
+    boto3 \
+    mcp
+
 COPY app.py .
 
 EXPOSE 8080
