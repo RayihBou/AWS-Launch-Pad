@@ -5,14 +5,34 @@ import { t } from '../i18n';
 import './MessageList.css';
 
 export default function MessageList({ messages, isLoading }) {
-  const endRef = useRef(null);
+  const listRef = useRef(null);
+  const userScrolled = useRef(false);
+
+  // Detect user scrolling up → pause auto-scroll
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      if (e.deltaY < 0) userScrolled.current = true; // scrolling up
+    };
+    el.addEventListener('wheel', onWheel, { passive: true });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+  // Reset when new user message is sent
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (last?.role === 'user') userScrolled.current = false;
+  }, [messages.length]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!userScrolled.current) {
+      listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
+    }
   }, [messages, isLoading]);
 
   return (
-    <div className="message-list">
+    <div className="message-list" ref={listRef}>
       {messages.map((msg, i) => (
         <div key={i} className={`message message--${msg.role}`}>
           <span className="message__label">{msg.role === 'user' ? t('chat.you') : t('chat.assistant')}</span>
@@ -35,7 +55,7 @@ export default function MessageList({ messages, isLoading }) {
           </div>
         </div>
       )}
-      <div ref={endRef} />
+      <div />
     </div>
   );
 }
