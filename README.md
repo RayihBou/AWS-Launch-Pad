@@ -12,6 +12,7 @@ AWS LaunchPad provides a web-based chatbot that customers and partners can deplo
 - **AWS Pricing:** Accurate, real-time pricing information for all AWS services
 - **Well-Architected Security:** Security posture assessment against the Well-Architected Framework Security Pillar
 - **CloudWatch Monitoring:** Metrics, alarms, logs analysis and operational troubleshooting
+- **CloudTrail Auditing:** Event history, error analysis, action traceability and compliance
 - **Controlled Actions:** Role-based access (Viewer/Operator) with manual guidance for restricted users
 
 ## Architecture
@@ -27,6 +28,7 @@ graph LR
     F --> H[AWS Pricing<br/>MCP Server]
     F --> I[WA Security<br/>MCP Server]
     F --> J[CloudWatch<br/>MCP Server]
+    F --> N[CloudTrail<br/>MCP Server]
     C --> K[AgentCore<br/>Memory]
     C --> L[AgentCore<br/>Policy]
     C --> M[AgentCore<br/>Identity]
