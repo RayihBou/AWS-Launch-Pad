@@ -1,74 +1,47 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { config } from '../config';
 import { t } from '../i18n';
 
-const MAX_RECONNECT = 3;
-
-export default function useWebSocket() {
+export default function useChat() {
   const [messages, setMessages] = useState([]);
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(!!config.agentEndpoint);
   const [isLoading, setIsLoading] = useState(false);
-  const wsRef = useRef(null);
-  const reconnectCount = useRef(0);
-  const chunkBuffer = useRef('');
 
-  const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+  const sendMessage = useCallback(async (text) => {
+    if (!text.trim()) return;
 
-    const ws = new WebSocket(config.websocketUrl);
-
-    ws.onopen = () => {
-      setIsConnected(true);
-      reconnectCount.current = 0;
-    };
-
-    ws.onclose = () => {
-      setIsConnected(false);
-      wsRef.current = null;
-      if (reconnectCount.current < MAX_RECONNECT) {
-        reconnectCount.current++;
-        setTimeout(connect, 2000 * reconnectCount.current);
-      }
-    };
-
-    ws.onerror = () => ws.close();
-
-    ws.onmessage = (event) => {
-      try {
-        const parsed = JSON.parse(event.data);
-        if (parsed.type === 'chunk') {
-          chunkBuffer.current += parsed.data;
-        } else if (parsed.type === 'end') {
-          const text = chunkBuffer.current || parsed.data || '';
-          chunkBuffer.current = '';
-          setMessages((prev) => [...prev, { role: 'assistant', content: text }]);
-          setIsLoading(false);
-        } else if (parsed.type === 'error') {
-          chunkBuffer.current = '';
-          setMessages((prev) => [...prev, { role: 'assistant', content: parsed.data || t('chat.error') }]);
-          setIsLoading(false);
-        }
-      } catch {
-        // Non-JSON message, treat as plain text response
-        setMessages((prev) => [...prev, { role: 'assistant', content: event.data }]);
-        setIsLoading(false);
-      }
-    };
-
-    wsRef.current = ws;
-  }, []);
-
-  useEffect(() => {
-    connect();
-    return () => wsRef.current?.close();
-  }, [connect]);
-
-  const sendMessage = useCallback((text) => {
-    if (!text.trim() || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
     setMessages((prev) => [...prev, { role: 'user', content: text }]);
     setIsLoading(true);
-    chunkBuffer.current = '';
-    wsRef.current.send(JSON.stringify({ action: 'sendMessage', message: text }));
+
+    if (!config.agentEndpoint) {
+      setMessages((prev) => [...prev, {
+        role: 'assistant',
+        content: t('chat.welcome'),
+      }]);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${config.agentEndpoint}/invoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: { text } }),
+      });
+
+      const data = await response.json();
+      setMessages((prev) => [...prev, {
+        role: 'assistant',
+        content: data.output?.text || t('chat.error'),
+      }]);
+    } catch {
+      setMessages((prev) => [...prev, {
+        role: 'assistant',
+        content: t('chat.error'),
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   return { messages, sendMessage, isConnected, isLoading };
