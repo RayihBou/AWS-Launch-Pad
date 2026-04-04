@@ -16,10 +16,19 @@ AWS LaunchPad provides a web-based chatbot that customers and partners can deplo
 
 ## Architecture
 
-```
-Browser → Amplify Hosting (CloudFront) → API Gateway (WebSocket) → Lambda → Bedrock Agent Core
-                                                                              ├── Knowledge Base (RAG + Aurora PostgreSQL pgvector)
-                                                                              └── Action Groups (AWS APIs)
+```mermaid
+graph LR
+    A[Browser] --> B[CloudFront]
+    B --> C[API Gateway<br/>WebSocket]
+    C --> D[Lambda<br/>Orchestrator]
+    D --> E[Bedrock Agent Core]
+    E --> F[Knowledge Base<br/>RAG]
+    E --> G[Action Groups<br/>AWS APIs]
+    F --> H[Aurora PostgreSQL<br/>Serverless v2<br/>pgvector]
+    G --> I[CloudWatch]
+    G --> J[Security Hub]
+    G --> K[GuardDuty]
+    G --> L[Cost Explorer]
 ```
 
 ## Tech Stack
