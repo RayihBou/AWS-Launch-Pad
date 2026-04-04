@@ -8,6 +8,7 @@ import * as bedrock from 'aws-cdk-lib/aws-bedrock';
 
 export interface LaunchpadAgentProps {
   monitoringHandler: lambda.Function;
+  modelId?: string;
 }
 
 export class LaunchpadAgent extends Construct {
@@ -60,7 +61,7 @@ export class LaunchpadAgent extends Construct {
     // Bedrock Agent
     this.agent = new bedrock.CfnAgent(this, 'Agent', {
       agentName: 'launchpad-assistant',
-      foundationModel: 'anthropic.claude-3-sonnet-20240229-v1:0',
+      foundationModel: props.modelId ?? 'anthropic.claude-3-5-sonnet-20241022-v2:0',
       instruction: 'You are an AWS operations assistant that helps with monitoring, security analysis, and modernization recommendations for cloud infrastructure.',
       idleSessionTtlInSeconds: 1800,
       agentResourceRoleArn: agentRole.roleArn,

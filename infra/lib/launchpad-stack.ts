@@ -10,6 +10,7 @@ import { LaunchpadFrontend } from './constructs/frontend';
 export interface LaunchpadStackProps extends cdk.StackProps {
   domainName?: string;
   hostedZoneId?: string;
+  modelId?: string;
 }
 
 export class LaunchpadStack extends cdk.Stack {
@@ -38,7 +39,7 @@ export class LaunchpadStack extends cdk.Stack {
     });
 
     // Agent
-    const agent = new LaunchpadAgent(this, 'Agent', { monitoringHandler: monitoring });
+    const agent = new LaunchpadAgent(this, 'Agent', { monitoringHandler: monitoring, modelId: props.modelId });
 
     // Set orchestrator env vars (after agent is created)
     orchestrator.addEnvironment('AGENT_ID', agent.agent.attrAgentId);

@@ -11,4 +11,5 @@ new LaunchpadStack(app, 'LaunchpadStack', {
   },
   domainName: app.node.tryGetContext('domainName'),
   hostedZoneId: app.node.tryGetContext('hostedZoneId'),
+  modelId: app.node.tryGetContext('modelId'),
 });
