@@ -13,5 +13,15 @@
     "assistant": "Asistente",
     "welcome": "Bienvenido. Soy tu asistente de nube de AWS. Consulta sobre monitoreo, seguridad o cualquier tema de AWS.",
     "error": "Ocurrió un error. Intenta de nuevo."
+  },
+  "login": {
+    "title": "Iniciar Sesion",
+    "email": "Correo electronico",
+    "password": "Contrasena",
+    "submit": "Iniciar Sesion",
+    "newPassword": "Nueva Contrasena",
+    "changePassword": "Cambiar Contrasena",
+    "newPasswordMessage": "Debes cambiar tu contrasena en el primer inicio de sesion.",
+    "logout": "Cerrar Sesion"
   }
 }

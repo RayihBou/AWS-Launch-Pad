@@ -13,5 +13,15 @@
     "assistant": "Assistant",
     "welcome": "Welcome! I'm your AWS cloud assistant. Ask me about monitoring, security, or any AWS topic.",
     "error": "An error occurred. Please try again."
+  },
+  "login": {
+    "title": "Sign In",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign In",
+    "newPassword": "New Password",
+    "changePassword": "Change Password",
+    "newPasswordMessage": "You must change your password on first login.",
+    "logout": "Sign Out"
   }
 }
