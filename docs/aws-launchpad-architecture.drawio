@@ -1,203 +1,184 @@
-<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.1 Chrome/142.0.7444.265 Electron/39.8.0 Safari/537.36" version="29.6.1">
-  <diagram id="launchpad-arch" name="AWS LaunchPad Architecture">
-    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1200" background="#232F3E" math="0" shadow="0">
+<mxfile host="app.diagrams.net" modified="2026-04-04T02:30:00.000Z" agent="draw.io" version="24.0.0" type="device">
+  <diagram id="aws-launchpad" name="AWS LaunchPad Architecture">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" background="#232F3E" math="0" shadow="0">
       <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
 
-        <!-- Title -->
-        <mxCell id="title" value="&lt;font style=&quot;font-size:24px;font-weight:bold;color:#FFFFFF;&quot;&gt;AWS LaunchPad - Architecture&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:14px;color:#FF9900;&quot;&gt;Bedrock AgentCore + MCP Servers&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
-          <mxGeometry x="700" y="20" width="400" height="60" as="geometry" />
+        <!-- ==================== GROUPS ==================== -->
+
+        <!-- USER Group -->
+        <mxCell id="group-user" value="USER" style="rounded=1;whiteSpace=wrap;html=0;fillColor=none;strokeColor=#AAAAAA;strokeWidth=2;dashed=1;verticalAlign=top;fontColor=#FFFFFF;fontSize=14;fontStyle=1;spacingTop=5;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="20" y="320" width="120" height="140" as="geometry"/>
         </mxCell>
 
-        <!-- Group 1: User -->
-        <mxCell id="grp-user" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:13px;&quot;&gt;&lt;b&gt;User&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#AAAAAA;strokeWidth=2;dashed=1;verticalAlign=top;align=center;spacingTop=5;arcSize=10;" vertex="1" parent="1">
-          <mxGeometry x="40" y="200" width="140" height="160" as="geometry" />
+        <!-- FRONTEND Group -->
+        <mxCell id="group-frontend" value="FRONTEND" style="rounded=1;whiteSpace=wrap;html=0;fillColor=none;strokeColor=#00BCD4;strokeWidth=2;verticalAlign=top;fontColor=#FFFFFF;fontSize=14;fontStyle=1;spacingTop=5;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="190" y="280" width="200" height="220" as="geometry"/>
         </mxCell>
 
-        <!-- Group 2: Frontend -->
-        <mxCell id="grp-frontend" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:13px;&quot;&gt;&lt;b&gt;Frontend&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#00BCD4;strokeWidth=2;verticalAlign=top;align=center;spacingTop=5;arcSize=10;" vertex="1" parent="1">
-          <mxGeometry x="230" y="170" width="200" height="220" as="geometry" />
+        <!-- BEDROCK AGENTCORE Group -->
+        <mxCell id="group-agentcore" value="BEDROCK AGENTCORE" style="rounded=1;whiteSpace=wrap;html=0;fillColor=none;strokeColor=#FF9900;strokeWidth=2;verticalAlign=top;fontColor=#FFFFFF;fontSize=14;fontStyle=1;spacingTop=5;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="440" y="100" width="480" height="580" as="geometry"/>
         </mxCell>
 
-        <!-- Group 3: Amazon Bedrock AgentCore (main) -->
-        <mxCell id="grp-agentcore" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:14px;&quot;&gt;&lt;b&gt;Amazon Bedrock AgentCore&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#FF9900;strokeWidth=2;verticalAlign=top;align=center;spacingTop=5;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="480" y="110" width="560" height="460" as="geometry" />
+        <!-- MCP SERVERS Group -->
+        <mxCell id="group-mcp" value="MCP SERVERS" style="rounded=1;whiteSpace=wrap;html=0;fillColor=none;strokeColor=#4CAF50;strokeWidth=2;verticalAlign=top;fontColor=#FFFFFF;fontSize=14;fontStyle=1;spacingTop=5;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="980" y="100" width="200" height="580" as="geometry"/>
         </mxCell>
 
-        <!-- Group 4: Foundation Model (inside AgentCore) -->
-        <mxCell id="grp-fm" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:12px;&quot;&gt;&lt;b&gt;Foundation Model&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#5294CF;strokeWidth=2;verticalAlign=top;align=center;spacingTop=5;arcSize=12;" vertex="1" parent="1">
-          <mxGeometry x="740" y="150" width="270" height="120" as="geometry" />
+        <!-- SECURITY Group -->
+        <mxCell id="group-security" value="SECURITY" style="rounded=1;whiteSpace=wrap;html=0;fillColor=none;strokeColor=#F44336;strokeWidth=2;verticalAlign=top;fontColor=#FFFFFF;fontSize=14;fontStyle=1;spacingTop=5;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="320" width="340" height="140" as="geometry"/>
         </mxCell>
 
-        <!-- Group 5: AgentCore Gateway + MCP Servers -->
-        <mxCell id="grp-mcp" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:13px;&quot;&gt;&lt;b&gt;AgentCore Gateway + MCP Servers&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#4CAF50;strokeWidth=2;verticalAlign=top;align=center;spacingTop=5;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="1100" y="110" width="280" height="460" as="geometry" />
+        <!-- ==================== NODES ==================== -->
+
+        <!-- USER: End User -->
+        <mxCell id="node-user" value="End User" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.user;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#232F3E;strokeColor=none;" vertex="1" parent="group-user">
+          <mxGeometry x="30" y="40" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <!-- Group 6: Security -->
-        <mxCell id="grp-security" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:13px;&quot;&gt;&lt;b&gt;Security&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#F44336;strokeWidth=2;verticalAlign=top;align=center;spacingTop=5;arcSize=10;" vertex="1" parent="1">
-          <mxGeometry x="1430" y="170" width="180" height="340" as="geometry" />
+        <!-- FRONTEND: CloudFront -->
+        <mxCell id="node-cloudfront" value="Amazon CloudFront" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudfront;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#8C4FFF;strokeColor=none;" vertex="1" parent="group-frontend">
+          <mxGeometry x="20" y="60" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <!-- === NODES: User Group === -->
-        <mxCell id="node-user" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:11px;&quot;&gt;End User&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#FFFFFF;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.client;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="72" y="250" width="60" height="60" as="geometry" />
+        <!-- FRONTEND: S3 -->
+        <mxCell id="node-s3" value="Amazon S3" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#3F8624;strokeColor=none;" vertex="1" parent="group-frontend">
+          <mxGeometry x="120" y="60" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <!-- === NODES: Frontend Group === -->
-        <mxCell id="node-cloudfront" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:11px;&quot;&gt;Amazon&lt;br&gt;CloudFront&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#8C4FFF;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudfront;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="260" y="210" width="60" height="60" as="geometry" />
+        <!-- AGENTCORE: Runtime (Strands SDK) -->
+        <mxCell id="node-runtime" value="AgentCore Runtime&#xa;(Strands SDK)" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.bedrock;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#01A88D;strokeColor=none;" vertex="1" parent="group-agentcore">
+          <mxGeometry x="30" y="140" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="node-s3-static" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:11px;&quot;&gt;Amazon S3&lt;br&gt;Static Hosting&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#3F8624;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="350" y="300" width="60" height="60" as="geometry" />
+        <!-- AGENTCORE: Claude Sonnet 4 -->
+        <mxCell id="node-claude" value="Claude Sonnet 4&#xa;(Amazon Bedrock)" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.bedrock;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#01A88D;strokeColor=none;" vertex="1" parent="group-agentcore">
+          <mxGeometry x="210" y="40" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <!-- === NODES: AgentCore Group === -->
-        <mxCell id="node-runtime" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:11px;&quot;&gt;AgentCore Runtime&lt;br&gt;&lt;i&gt;Strands Agents SDK&lt;/i&gt;&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#01A88D;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.bedrock;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="530" y="290" width="60" height="60" as="geometry" />
+        <!-- AGENTCORE: Memory -->
+        <mxCell id="node-memory" value="AgentCore&#xa;Memory" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.bedrock;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#01A88D;strokeColor=none;" vertex="1" parent="group-agentcore">
+          <mxGeometry x="210" y="240" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="node-identity" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:11px;&quot;&gt;AgentCore&lt;br&gt;Identity&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#DD344C;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.iam_permissions;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="660" y="290" width="60" height="60" as="geometry" />
+        <!-- AGENTCORE: Identity -->
+        <mxCell id="node-identity" value="AgentCore&#xa;Identity" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.iam;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#DD344C;strokeColor=none;" vertex="1" parent="group-agentcore">
+          <mxGeometry x="210" y="440" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="node-policy" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:11px;&quot;&gt;AgentCore Policy&lt;br&gt;&lt;i&gt;Cedar Rules&lt;/i&gt;&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#DD344C;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.policy;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="530" y="440" width="60" height="60" as="geometry" />
+        <!-- AGENTCORE: Policy (Cedar) -->
+        <mxCell id="node-policy" value="AgentCore Policy&#xa;(Cedar)" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.iam;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#DD344C;strokeColor=none;" vertex="1" parent="group-agentcore">
+          <mxGeometry x="380" y="440" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="node-memory" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:11px;&quot;&gt;AgentCore Memory&lt;br&gt;&lt;i&gt;Short + Long Term&lt;/i&gt;&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#01A88D;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.bedrock;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="660" y="440" width="60" height="60" as="geometry" />
+        <!-- AGENTCORE: Observability -->
+        <mxCell id="node-observability" value="AgentCore&#xa;Observability" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudwatch;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#E7157B;strokeColor=none;" vertex="1" parent="group-agentcore">
+          <mxGeometry x="380" y="240" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="node-observability" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:11px;&quot;&gt;AgentCore&lt;br&gt;Observability&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#E7157B;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudwatch;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="800" y="440" width="60" height="60" as="geometry" />
+        <!-- MCP: AgentCore Gateway -->
+        <mxCell id="node-gateway" value="AgentCore&#xa;Gateway" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.bedrock;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#01A88D;strokeColor=none;" vertex="1" parent="group-mcp">
+          <mxGeometry x="70" y="40" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <!-- === NODES: Foundation Model Group === -->
-        <mxCell id="node-claude" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:11px;&quot;&gt;Claude Sonnet 4&lt;br&gt;&lt;i&gt;Amazon Bedrock&lt;/i&gt;&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#01A88D;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.bedrock_runtime;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="840" y="185" width="60" height="60" as="geometry" />
+        <!-- MCP: AWS Knowledge MCP -->
+        <mxCell id="node-knowledge-mcp" value="AWS Knowledge&#xa;MCP" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.general_AWS_cloud;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#232F3E;strokeColor=none;" vertex="1" parent="group-mcp">
+          <mxGeometry x="70" y="150" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <!-- === NODES: MCP Gateway Group === -->
-        <mxCell id="node-gateway" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:11px;&quot;&gt;AgentCore&lt;br&gt;Gateway&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#8C4FFF;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.api_gateway;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="1200" y="150" width="60" height="60" as="geometry" />
+        <!-- MCP: AWS Pricing MCP -->
+        <mxCell id="node-pricing-mcp" value="AWS Pricing&#xa;MCP" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.general_AWS_cloud;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#232F3E;strokeColor=none;" vertex="1" parent="group-mcp">
+          <mxGeometry x="70" y="260" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="node-mcp-knowledge" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:10px;&quot;&gt;AWS Knowledge&lt;br&gt;MCP Server&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#01A88D;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.bedrock_knowledge_base;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="1200" y="250" width="55" height="55" as="geometry" />
+        <!-- MCP: WA Security MCP -->
+        <mxCell id="node-wa-mcp" value="WA Security&#xa;MCP" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.general_AWS_cloud;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#232F3E;strokeColor=none;" vertex="1" parent="group-mcp">
+          <mxGeometry x="70" y="370" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="node-mcp-pricing" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:10px;&quot;&gt;AWS Pricing&lt;br&gt;MCP Server&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#3F8624;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cost_explorer;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="1300" y="250" width="55" height="55" as="geometry" />
+        <!-- MCP: CloudWatch MCP -->
+        <mxCell id="node-cw-mcp" value="CloudWatch&#xa;MCP" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudwatch;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#E7157B;strokeColor=none;" vertex="1" parent="group-mcp">
+          <mxGeometry x="70" y="480" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="node-mcp-security" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:10px;&quot;&gt;Well-Architected&lt;br&gt;Security MCP&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#DD344C;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.well_architected_tool;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="1200" y="370" width="55" height="55" as="geometry" />
+        <!-- SECURITY: Cognito -->
+        <mxCell id="node-cognito" value="Amazon Cognito" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cognito;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#DD344C;strokeColor=none;" vertex="1" parent="group-security">
+          <mxGeometry x="20" y="40" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="node-mcp-cw" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:10px;&quot;&gt;CloudWatch&lt;br&gt;MCP Server&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#E7157B;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudwatch;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="1300" y="370" width="55" height="55" as="geometry" />
+        <!-- SECURITY: Bedrock Guardrails -->
+        <mxCell id="node-guardrails" value="Bedrock&#xa;Guardrails" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.shield;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#DD344C;strokeColor=none;" vertex="1" parent="group-security">
+          <mxGeometry x="140" y="40" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <!-- === NODES: Security Group === -->
-        <mxCell id="node-cognito" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:11px;&quot;&gt;Amazon&lt;br&gt;Cognito&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#DD344C;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cognito;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="1490" y="210" width="60" height="60" as="geometry" />
+        <!-- SECURITY: CloudTrail -->
+        <mxCell id="node-cloudtrail" value="AWS CloudTrail" style="shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudtrail;labelBackgroundColor=none;sketch=0;fontFamily=Helvetica;fontSize=11;fontColor=#FFFFFF;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;fillColor=#E7157B;strokeColor=none;" vertex="1" parent="group-security">
+          <mxGeometry x="260" y="40" width="60" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="node-guardrails" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:11px;&quot;&gt;Bedrock&lt;br&gt;Guardrails&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#01A88D;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.bedrock;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="1490" y="320" width="60" height="60" as="geometry" />
-        </mxCell>
+        <!-- ==================== CONNECTIONS ==================== -->
 
-        <mxCell id="node-cloudtrail" value="&lt;font color=&quot;#FFFFFF&quot; style=&quot;font-size:11px;&quot;&gt;AWS&lt;br&gt;CloudTrail&lt;/font&gt;" style="outlineConnect=0;fontColor=#232323;gradientColor=none;strokeColor=none;fillColor=#E7157B;align=center;verticalAlign=top;verticalLabelPosition=bottom;labelPosition=center;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudtrail;labelBackgroundColor=none;" vertex="1" parent="1">
-          <mxGeometry x="1490" y="430" width="60" height="60" as="geometry" />
-        </mxCell>
-
-        <!-- === CONNECTIONS === -->
-        <!-- User -> CloudFront -->
-        <mxCell id="edge-user-cf" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#FFFFFF;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="node-user" target="node-cloudfront" parent="1">
-          <mxGeometry relative="1" as="geometry" />
+        <!-- End User -> CloudFront -->
+        <mxCell id="conn-user-cf" value="HTTPS" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#FFFFFF;strokeWidth=1;fontColor=#FF9900;fontSize=10;fontFamily=Helvetica;labelBackgroundColor=none;" edge="1" source="node-user" target="node-cloudfront" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
         <!-- CloudFront -> S3 -->
-        <mxCell id="edge-cf-s3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#00BCD4;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="node-cloudfront" target="node-s3-static" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="edge-cf-s3-label" value="&lt;font color=&quot;#AAAAAA&quot; style=&quot;font-size:9px;&quot;&gt;static assets&lt;/font&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;" vertex="1" connectable="0" parent="edge-cf-s3">
-          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint x="10" y="-10" as="offset" /></mxGeometry>
+        <mxCell id="conn-cf-s3" value="static assets" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#FFFFFF;strokeWidth=1;fontColor=#FF9900;fontSize=10;fontFamily=Helvetica;labelBackgroundColor=none;" edge="1" source="node-cloudfront" target="node-s3" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
         <!-- CloudFront -> AgentCore Runtime -->
-        <mxCell id="edge-cf-runtime" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#FF9900;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="node-cloudfront" target="node-runtime" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="edge-cf-runtime-label" value="&lt;font color=&quot;#FF9900&quot; style=&quot;font-size:9px;&quot;&gt;API requests&lt;/font&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;" vertex="1" connectable="0" parent="edge-cf-runtime">
-          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint y="-12" as="offset" /></mxGeometry>
+        <mxCell id="conn-cf-runtime" value="API" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#FFFFFF;strokeWidth=1;fontColor=#FF9900;fontSize=10;fontFamily=Helvetica;labelBackgroundColor=none;" edge="1" source="node-cloudfront" target="node-runtime" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
-        <!-- Runtime -> Claude (model invocation) -->
-        <mxCell id="edge-runtime-claude" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#5294CF;strokeWidth=2;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="node-runtime" target="node-claude" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="edge-runtime-claude-label" value="&lt;font color=&quot;#5294CF&quot; style=&quot;font-size:9px;&quot;&gt;model invoke&lt;/font&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;" vertex="1" connectable="0" parent="edge-runtime-claude">
-          <mxGeometry x="-0.3" relative="1" as="geometry"><mxPoint x="-15" y="-10" as="offset" /></mxGeometry>
+        <!-- Runtime -> Claude Sonnet 4 -->
+        <mxCell id="conn-runtime-claude" value="model invoke" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#FFFFFF;strokeWidth=1;fontColor=#FF9900;fontSize=10;fontFamily=Helvetica;labelBackgroundColor=none;" edge="1" source="node-runtime" target="node-claude" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
-        <!-- Runtime -> Gateway -->
-        <mxCell id="edge-runtime-gw" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4CAF50;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="node-runtime" target="node-gateway" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="edge-runtime-gw-label" value="&lt;font color=&quot;#4CAF50&quot; style=&quot;font-size:9px;&quot;&gt;tool calls&lt;/font&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;" vertex="1" connectable="0" parent="edge-runtime-gw">
-          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint y="-12" as="offset" /></mxGeometry>
+        <!-- Runtime -> Gateway (tool calls) -->
+        <mxCell id="conn-runtime-gw" value="tool calls" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#FFFFFF;strokeWidth=1;fontColor=#FF9900;fontSize=10;fontFamily=Helvetica;labelBackgroundColor=none;" edge="1" source="node-runtime" target="node-gateway" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
-        <!-- Gateway -> MCP Servers (dashed) -->
-        <mxCell id="edge-gw-knowledge" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4CAF50;strokeWidth=1;dashed=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="node-gateway" target="node-mcp-knowledge" parent="1">
-          <mxGeometry relative="1" as="geometry" />
+        <!-- Gateway -> Knowledge MCP -->
+        <mxCell id="conn-gw-knowledge" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#FFFFFF;strokeWidth=1;fontFamily=Helvetica;labelBackgroundColor=none;" edge="1" source="node-gateway" target="node-knowledge-mcp" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
-        <mxCell id="edge-gw-pricing" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4CAF50;strokeWidth=1;dashed=1;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="node-gateway" target="node-mcp-pricing" parent="1">
-          <mxGeometry relative="1" as="geometry" />
+        <!-- Gateway -> Pricing MCP -->
+        <mxCell id="conn-gw-pricing" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#FFFFFF;strokeWidth=1;fontFamily=Helvetica;labelBackgroundColor=none;" edge="1" source="node-gateway" target="node-pricing-mcp" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
-        <mxCell id="edge-gw-sec" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4CAF50;strokeWidth=1;dashed=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="node-mcp-knowledge" target="node-mcp-security" parent="1">
-          <mxGeometry relative="1" as="geometry" />
+        <!-- Gateway -> WA Security MCP -->
+        <mxCell id="conn-gw-wa" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#FFFFFF;strokeWidth=1;fontFamily=Helvetica;labelBackgroundColor=none;" edge="1" source="node-gateway" target="node-wa-mcp" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
-        <mxCell id="edge-gw-cw" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#4CAF50;strokeWidth=1;dashed=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" source="node-mcp-pricing" target="node-mcp-cw" parent="1">
-          <mxGeometry relative="1" as="geometry" />
+        <!-- Gateway -> CloudWatch MCP -->
+        <mxCell id="conn-gw-cw" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#FFFFFF;strokeWidth=1;fontFamily=Helvetica;labelBackgroundColor=none;" edge="1" source="node-gateway" target="node-cw-mcp" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
         <!-- Identity -> Cognito -->
-        <mxCell id="edge-identity-cognito" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#DD344C;strokeWidth=1.5;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="node-identity" target="node-cognito" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="edge-identity-cognito-label" value="&lt;font color=&quot;#DD344C&quot; style=&quot;font-size:9px;&quot;&gt;auth flow&lt;/font&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;" vertex="1" connectable="0" parent="edge-identity-cognito">
-          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint y="-12" as="offset" /></mxGeometry>
+        <mxCell id="conn-identity-cognito" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#FFFFFF;strokeWidth=1;fontFamily=Helvetica;labelBackgroundColor=none;" edge="1" source="node-identity" target="node-cognito" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
         <!-- Runtime -> Memory -->
-        <mxCell id="edge-runtime-memory" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#AAAAAA;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="node-runtime" target="node-memory" parent="1">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="conn-runtime-memory" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#FFFFFF;strokeWidth=1;fontFamily=Helvetica;labelBackgroundColor=none;" edge="1" source="node-runtime" target="node-memory" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
         <!-- Runtime -> Observability -->
-        <mxCell id="edge-runtime-obs" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#E7157B;strokeWidth=1.5;dashed=1;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="node-runtime" target="node-observability" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <!-- Policy -> Gateway (enforcement) -->
-        <mxCell id="edge-policy-gw" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#FF9900;strokeWidth=1.5;dashed=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=1;entryDx=0;entryDy=0;" edge="1" source="node-policy" target="node-gateway" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="edge-policy-gw-label" value="&lt;font color=&quot;#FF9900&quot; style=&quot;font-size:9px;&quot;&gt;enforcement&lt;/font&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;" vertex="1" connectable="0" parent="edge-policy-gw">
-          <mxGeometry x="-0.3" relative="1" as="geometry"><mxPoint y="-12" as="offset" /></mxGeometry>
-        </mxCell>
-
-        <!-- Runtime -> Identity -->
-        <mxCell id="edge-runtime-identity" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#DD344C;strokeWidth=1.5;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=1;" edge="1" source="node-runtime" target="node-identity" parent="1">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="conn-runtime-obs" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#FFFFFF;strokeWidth=1;fontFamily=Helvetica;labelBackgroundColor=none;" edge="1" source="node-runtime" target="node-observability" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
       </root>

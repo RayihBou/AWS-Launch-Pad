@@ -1,62 +1,65 @@
-# AWS LaunchPad Architecture - Diagram Prompt
+# AWS LaunchPad Architecture Diagram - Prompt File
 
-**File:** `aws-launchpad-architecture.drawio`
-**Updated:** 2026-04-03
-**Architecture:** Bedrock AgentCore + MCP Servers
+Generated: 2026-04-03
 
 ## Canvas
 | Property | Value |
 |----------|-------|
-| Width | 1920 |
-| Height | 1200 |
-| Background | #232F3E (AWS dark) |
+| Width | 1600 |
+| Height | 900 |
 | Direction | Left-to-Right |
+| Background | #232F3E |
 
-## Groups (6)
+## Groups
 | ID | Label | Border Color | Position |
 |----|-------|-------------|----------|
-| grp-user | User | #AAAAAA (dashed) | x=40, y=200 |
-| grp-frontend | Frontend | #00BCD4 (teal) | x=230, y=170 |
-| grp-agentcore | Amazon Bedrock AgentCore | #FF9900 (orange) | x=480, y=110 |
-| grp-fm | Foundation Model | #5294CF (blue) | x=740, y=150 |
-| grp-mcp | AgentCore Gateway + MCP Servers | #4CAF50 (green) | x=1100, y=110 |
-| grp-security | Security | #F44336 (red) | x=1430, y=170 |
+| group-user | USER | #AAAAAA (dashed) | x=20, y=320 |
+| group-frontend | FRONTEND | #00BCD4 | x=190, y=280 |
+| group-agentcore | BEDROCK AGENTCORE | #FF9900 | x=440, y=100 |
+| group-mcp | MCP SERVERS | #4CAF50 | x=980, y=100 |
+| group-security | SECURITY | #F44336 | x=1240, y=320 |
 
-## Nodes (17)
-| ID | Label | Icon | Group |
-|----|-------|------|-------|
-| node-user | End User | client | grp-user |
-| node-cloudfront | Amazon CloudFront | cloudfront | grp-frontend |
-| node-s3-static | Amazon S3 / Static Hosting | s3 | grp-frontend |
-| node-runtime | AgentCore Runtime / Strands Agents SDK | bedrock | grp-agentcore |
-| node-identity | AgentCore Identity | iam_permissions | grp-agentcore |
-| node-policy | AgentCore Policy / Cedar Rules | policy | grp-agentcore |
-| node-memory | AgentCore Memory / Short + Long Term | bedrock | grp-agentcore |
-| node-observability | AgentCore Observability | cloudwatch | grp-agentcore |
-| node-claude | Claude Sonnet 4 / Amazon Bedrock | bedrock_runtime | grp-fm |
-| node-gateway | AgentCore Gateway | api_gateway | grp-mcp |
-| node-mcp-knowledge | AWS Knowledge MCP Server | bedrock_knowledge_base | grp-mcp |
-| node-mcp-pricing | AWS Pricing MCP Server | cost_explorer | grp-mcp |
-| node-mcp-security | Well-Architected Security MCP | well_architected_tool | grp-mcp |
-| node-mcp-cw | CloudWatch MCP Server | cloudwatch | grp-mcp |
-| node-cognito | Amazon Cognito | cognito | grp-security |
-| node-guardrails | Bedrock Guardrails | bedrock | grp-security |
-| node-cloudtrail | AWS CloudTrail | cloudtrail | grp-security |
+## Nodes
+| ID | Label | Icon (resIcon) | Parent Group |
+|----|-------|----------------|-------------|
+| node-user | End User | aws4.user | group-user |
+| node-cloudfront | Amazon CloudFront | aws4.cloudfront | group-frontend |
+| node-s3 | Amazon S3 | aws4.s3 | group-frontend |
+| node-runtime | AgentCore Runtime (Strands SDK) | aws4.bedrock | group-agentcore |
+| node-claude | Claude Sonnet 4 (Amazon Bedrock) | aws4.bedrock | group-agentcore |
+| node-memory | AgentCore Memory | aws4.bedrock | group-agentcore |
+| node-identity | AgentCore Identity | aws4.iam | group-agentcore |
+| node-policy | AgentCore Policy (Cedar) | aws4.iam | group-agentcore |
+| node-observability | AgentCore Observability | aws4.cloudwatch | group-agentcore |
+| node-gateway | AgentCore Gateway | aws4.bedrock | group-mcp |
+| node-knowledge-mcp | AWS Knowledge MCP | aws4.general_AWS_cloud | group-mcp |
+| node-pricing-mcp | AWS Pricing MCP | aws4.general_AWS_cloud | group-mcp |
+| node-wa-mcp | WA Security MCP | aws4.general_AWS_cloud | group-mcp |
+| node-cw-mcp | CloudWatch MCP | aws4.cloudwatch | group-mcp |
+| node-cognito | Amazon Cognito | aws4.cognito | group-security |
+| node-guardrails | Bedrock Guardrails | aws4.shield | group-security |
+| node-cloudtrail | AWS CloudTrail | aws4.cloudtrail | group-security |
 
-## Connections (14)
-| Source | Target | Style | Label |
-|--------|--------|-------|-------|
-| node-user | node-cloudfront | solid white | — |
-| node-cloudfront | node-s3-static | solid teal | static assets |
-| node-cloudfront | node-runtime | solid orange | API requests |
-| node-runtime | node-claude | solid blue | model invoke |
-| node-runtime | node-gateway | solid green | tool calls |
-| node-gateway | node-mcp-knowledge | dashed green | — |
-| node-gateway | node-mcp-pricing | dashed green | — |
-| node-mcp-knowledge | node-mcp-security | dashed green | — |
-| node-mcp-pricing | node-mcp-cw | dashed green | — |
-| node-identity | node-cognito | solid red | auth flow |
-| node-runtime | node-memory | solid gray | — |
-| node-runtime | node-observability | dashed pink | — |
-| node-policy | node-gateway | dashed orange | enforcement |
-| node-runtime | node-identity | dashed red | — |
+## Connections
+| ID | Source | Target | Label | Style |
+|----|--------|--------|-------|-------|
+| conn-user-cf | node-user | node-cloudfront | HTTPS | solid white |
+| conn-cf-s3 | node-cloudfront | node-s3 | static assets | solid white |
+| conn-cf-runtime | node-cloudfront | node-runtime | API | solid white |
+| conn-runtime-claude | node-runtime | node-claude | model invoke | solid white |
+| conn-runtime-gw | node-runtime | node-gateway | tool calls | solid white |
+| conn-gw-knowledge | node-gateway | node-knowledge-mcp | — | solid white |
+| conn-gw-pricing | node-gateway | node-pricing-mcp | — | solid white |
+| conn-gw-wa | node-gateway | node-wa-mcp | — | solid white |
+| conn-gw-cw | node-gateway | node-cw-mcp | — | solid white |
+| conn-identity-cognito | node-identity | node-cognito | — | solid white |
+| conn-runtime-memory | node-runtime | node-memory | — | solid white |
+| conn-runtime-obs | node-runtime | node-observability | — | solid white |
+
+## Style Rules
+- All labels: plain text (NO HTML), fontColor=#FFFFFF, fontSize=11
+- Group labels: fontColor=#FFFFFF, fontSize=14, fontStyle=1 (bold)
+- Connection labels: fontColor=#FF9900, fontSize=10
+- Connection lines: strokeColor=#FFFFFF, strokeWidth=1
+- Node size: 60x60
+- Label position: verticalLabelPosition=bottom, verticalAlign=top
