@@ -1,5 +1,10 @@
 .app {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
+  height: 100vh; /* fallback */
+}
+
+@supports (height: 100dvh) {
+  .app { height: 100dvh; }
 }

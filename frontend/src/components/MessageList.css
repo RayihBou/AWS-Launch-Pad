@@ -121,4 +121,6 @@
   .message {
     max-width: 90%;
   }
+  .message__bubble { font-size: 0.85rem; }
+  .message-list { padding: 12px; }
 }

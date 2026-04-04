@@ -3,7 +3,9 @@ import { CognitoUserPool } from 'amazon-cognito-identity-js';
 import { config } from '../config';
 import { t } from '../i18n';
 
-function getIdToken() {
+const sessionId = crypto.randomUUID();
+
+function getAuthInfo() {
   if (!config.userPoolId) return null;
   const pool = new CognitoUserPool({
     UserPoolId: config.userPoolId,
@@ -15,7 +17,10 @@ function getIdToken() {
   return new Promise((resolve) => {
     user.getSession((err, session) => {
       if (err || !session?.isValid()) { resolve(null); return; }
-      resolve(session.getIdToken().getJwtToken());
+      const payload = session.getIdToken().decodePayload();
+      const groups = payload['cognito:groups'] || [];
+      const role = groups.includes('Operator') ? 'Operator' : 'Viewer';
+      resolve({ token: session.getIdToken().getJwtToken(), role });
     });
   });
 }
@@ -25,6 +30,7 @@ export default function useChat() {
   const [isConnected, setIsConnected] = useState(!!config.agentEndpoint);
   const [isLoading, setIsLoading] = useState(false);
   const streamRef = useRef(null);
+  const messagesRef = useRef([]);
 
   const streamText = useCallback((fullText) => {
     if (streamRef.current) clearInterval(streamRef.current);
@@ -38,6 +44,7 @@ export default function useChat() {
         setMessages((prev) => {
           const copy = [...prev];
           copy[copy.length - 1] = { role: 'assistant', content: fullText };
+          messagesRef.current = copy;
           return copy;
         });
         clearInterval(streamRef.current);
@@ -55,7 +62,12 @@ export default function useChat() {
   const sendMessage = useCallback(async (text) => {
     if (!text.trim() || isLoading) return;
 
-    setMessages((prev) => [...prev, { role: 'user', content: text }]);
+    const userMsg = { role: 'user', content: text };
+    setMessages((prev) => {
+      const updated = [...prev, userMsg];
+      messagesRef.current = updated;
+      return updated;
+    });
     setIsLoading(true);
 
     if (!config.agentEndpoint) {
@@ -65,14 +77,24 @@ export default function useChat() {
     }
 
     try {
-      const token = await getIdToken();
+      const auth = await getAuthInfo();
       const headers = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (auth) headers['Authorization'] = `Bearer ${auth.token}`;
+
+      // Send full history (excluding partial typewriter messages)
+      const history = messagesRef.current
+        .filter(m => m.content && m.content.length > 0)
+        .map(m => ({ role: m.role, text: m.content }));
 
       const response = await fetch(config.agentEndpoint, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ input: { text } }),
+        body: JSON.stringify({
+          input: { text },
+          session_id: sessionId,
+          role: auth?.role || 'Viewer',
+          history,
+        }),
       });
 
       const data = await response.json();

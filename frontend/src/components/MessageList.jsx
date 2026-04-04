@@ -13,10 +13,21 @@ export default function MessageList({ messages, isLoading }) {
     const el = listRef.current;
     if (!el) return;
     const onWheel = (e) => {
-      if (e.deltaY < 0) userScrolled.current = true; // scrolling up
+      if (e.deltaY < 0) userScrolled.current = true;
+    };
+    let lastTouchY = 0;
+    const onTouchStart = (e) => { lastTouchY = e.touches[0].clientY; };
+    const onTouchMove = (e) => {
+      if (e.touches[0].clientY > lastTouchY) userScrolled.current = true; // scrolling up
     };
     el.addEventListener('wheel', onWheel, { passive: true });
-    return () => el.removeEventListener('wheel', onWheel);
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: true });
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+    };
   }, []);
 
   // Reset when new user message is sent

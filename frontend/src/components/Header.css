@@ -51,3 +51,12 @@
   background: var(--color-aws-orange);
   color: #0f1419;
 }
+
+@media (max-width: 600px) {
+  .header { padding: 8px 12px; gap: 8px; }
+  .header__logo { width: 40px; height: 24px; }
+  .header__title { font-size: 0.9rem; }
+  .header__subtitle { display: none; }
+  .header__email { font-size: 0.7rem; }
+  .header__logout { padding: 4px 10px; font-size: 0.7rem; }
+}
