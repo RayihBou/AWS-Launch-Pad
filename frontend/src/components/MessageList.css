@@ -82,6 +82,11 @@
 .message--assistant .message__bubble th,
 .message--assistant .message__bubble td { border: 1px solid var(--color-border); padding: 4px 8px; font-size: 0.85em; }
 .message--assistant .message__bubble th { background: var(--color-background-tertiary); }
+.message--assistant .message__bubble a {
+  color: var(--color-aws-orange);
+  word-break: break-all;
+}
+.message--assistant .message__bubble a:hover { text-decoration: underline; }
 
 /* Typing dots animation */
 .typing-dots {

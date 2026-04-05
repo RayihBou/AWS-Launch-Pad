@@ -48,7 +48,8 @@ TOOLS = {
 
 def handler(event, context):
     try:
-        tool_name = context.client_context.custom.get('bedrockAgentCoreToolName', '') if context.client_context else ''
+        raw_name = context.client_context.custom.get('bedrockAgentCoreToolName', '') if context.client_context and context.client_context.custom else ''
+        tool_name = raw_name.split('___')[-1] if '___' in raw_name else raw_name
         if not tool_name:
             tool_name = event.get('toolName', '')
         if tool_name not in TOOLS:

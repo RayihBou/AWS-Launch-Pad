@@ -81,24 +81,35 @@ export default function useChat() {
       const headers = { 'Content-Type': 'application/json' };
       if (auth) headers['Authorization'] = `Bearer ${auth.token}`;
 
-      // Send full history (excluding partial typewriter messages)
+      // Send full history
       const history = messagesRef.current
         .filter(m => m.content && m.content.length > 0)
         .map(m => ({ role: m.role, text: m.content }));
 
-      const response = await fetch(config.agentEndpoint, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          input: { text },
-          session_id: sessionId,
-          role: auth?.role || 'Viewer',
-          history,
-        }),
+      const body = JSON.stringify({
+        input: { text },
+        session_id: sessionId,
+        role: auth?.role || 'Viewer',
+        history,
       });
 
-      const data = await response.json();
-      const content = data.output?.text || data.body || JSON.stringify(data);
+      // Retry logic for timeout (503)
+      let data;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const response = await fetch(config.agentEndpoint, { method: 'POST', headers, body });
+        if (response.status === 503 && attempt < 2) {
+          setMessages((prev) => {
+            const copy = [...prev];
+            if (copy[copy.length - 1]?.role === 'assistant') copy.pop();
+            return [...copy, { role: 'assistant', content: 'Procesando consulta compleja, un momento...' }];
+          });
+          continue;
+        }
+        data = await response.json();
+        break;
+      }
+
+      const content = data?.output?.text || data?.body || JSON.stringify(data || {});
       streamText(content);
     } catch (err) {
       setMessages((prev) => [...prev, {

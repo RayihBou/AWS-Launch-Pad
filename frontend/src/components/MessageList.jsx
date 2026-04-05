@@ -49,7 +49,7 @@ export default function MessageList({ messages, isLoading }) {
           <span className="message__label">{msg.role === 'user' ? t('chat.you') : t('chat.assistant')}</span>
           <div className="message__bubble">
             {msg.role === 'assistant'
-              ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+              ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={{a: ({...props}) => <a {...props} target="_blank" rel="noopener noreferrer" />}}>{msg.content}</ReactMarkdown>
               : msg.content}
           </div>
         </div>
