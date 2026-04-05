@@ -83,3 +83,8 @@
   margin-top: 12px;
   text-align: center;
 }
+
+.login__qr { text-align: center; margin: 12px 0; }
+.login__qr img { border-radius: 8px; background: white; padding: 8px; }
+.login__secret { font-size: 0.75rem; color: var(--color-text-secondary); text-align: center; word-break: break-all; }
+.login__secret code { color: var(--color-aws-orange); }

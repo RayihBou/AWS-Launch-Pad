@@ -7,11 +7,20 @@ const userPool = config.userPoolId ? new CognitoUserPool({
   ClientId: config.userPoolClientId,
 }) : null;
 
+function extractUser(session, fallback) {
+  const payload = session.getIdToken().decodePayload();
+  const email = payload.email || fallback;
+  return { email: email.split('@')[0] };
+}
+
 export default function useAuth() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [newPasswordRequired, setNewPasswordRequired] = useState(false);
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaSetupRequired, setMfaSetupRequired] = useState(false);
+  const [totpSecret, setTotpSecret] = useState('');
   const [cognitoUser, setCognitoUser] = useState(null);
 
   useEffect(() => {
@@ -19,16 +28,30 @@ export default function useAuth() {
     const currentUser = userPool.getCurrentUser();
     if (currentUser) {
       currentUser.getSession((err, session) => {
-        if (session?.isValid()) {
-          const payload = session.getIdToken().decodePayload();
-          const email = payload.email || currentUser.getUsername();
-          setUser({ email: email.split('@')[0] });
-        }
+        if (session?.isValid()) setUser(extractUser(session, currentUser.getUsername()));
         setLoading(false);
       });
     } else {
       setLoading(false);
     }
+  }, []);
+
+  const handleSuccess = useCallback((session, email) => {
+    setUser(extractUser(session, email));
+    setNewPasswordRequired(false);
+    setMfaRequired(false);
+    setMfaSetupRequired(false);
+  }, []);
+
+  const handleMfaSetup = useCallback((authUser) => {
+    authUser.associateSoftwareToken({
+      associateSecretCode: (secret) => {
+        setCognitoUser(authUser);
+        setTotpSecret(secret);
+        setMfaSetupRequired(true);
+      },
+      onFailure: (err) => setError(err.message || 'MFA setup failed'),
+    });
   }, []);
 
   const login = useCallback((email, password) => {
@@ -37,33 +60,55 @@ export default function useAuth() {
     const authDetails = new AuthenticationDetails({ Username: email, Password: password });
 
     authUser.authenticateUser(authDetails, {
-      onSuccess: (session) => {
-        const payload = session.getIdToken().decodePayload();
-        const em = payload.email || email;
-        setUser({ email: em.split('@')[0] });
-        setNewPasswordRequired(false);
-      },
+      onSuccess: (session) => handleSuccess(session, email),
       onFailure: (err) => setError(err.message || 'Login failed'),
       newPasswordRequired: () => {
         setCognitoUser(authUser);
         setNewPasswordRequired(true);
       },
+      totpRequired: () => {
+        setCognitoUser(authUser);
+        setMfaRequired(true);
+      },
+      mfaSetup: () => handleMfaSetup(authUser),
     });
-  }, []);
+  }, [handleSuccess, handleMfaSetup]);
 
   const completeNewPassword = useCallback((newPassword) => {
     if (!cognitoUser) return;
     setError('');
     cognitoUser.completeNewPasswordChallenge(newPassword, {}, {
-      onSuccess: (session) => {
-        const payload = session.getIdToken().decodePayload();
-        const em = payload.email || cognitoUser.getUsername();
-        setUser({ email: em.split('@')[0] });
-        setNewPasswordRequired(false);
-      },
+      onSuccess: (session) => handleSuccess(session, cognitoUser.getUsername()),
       onFailure: (err) => setError(err.message || 'Password change failed'),
+      totpRequired: () => setMfaRequired(true),
+      mfaSetup: () => handleMfaSetup(cognitoUser),
     });
-  }, [cognitoUser]);
+  }, [cognitoUser, handleSuccess, handleMfaSetup]);
+
+  const verifyTotp = useCallback((code) => {
+    if (!cognitoUser) return;
+    setError('');
+    if (mfaSetupRequired) {
+      // First time: verify and set as preferred
+      cognitoUser.verifySoftwareToken(code, 'TOTP', {
+        onSuccess: () => {
+          cognitoUser.setUserMfaPreference(null, { PreferredMfa: true, Enabled: true }, (err) => {
+            if (err) { setError(err.message); return; }
+            // Re-authenticate after MFA setup
+            setMfaSetupRequired(false);
+            setError('MFA configurado. Inicia sesion nuevamente.');
+          });
+        },
+        onFailure: (err) => setError(err.message || 'Invalid code'),
+      });
+    } else {
+      // Subsequent logins: verify TOTP challenge
+      cognitoUser.sendMFACode(code, {
+        onSuccess: (session) => handleSuccess(session, cognitoUser.getUsername()),
+        onFailure: (err) => setError(err.message || 'Invalid code'),
+      }, 'SOFTWARE_TOKEN_MFA');
+    }
+  }, [cognitoUser, mfaSetupRequired, handleSuccess]);
 
   const logout = useCallback(() => {
     const currentUser = userPool?.getCurrentUser();
@@ -71,5 +116,5 @@ export default function useAuth() {
     setUser(null);
   }, []);
 
-  return { user, loading, error, login, logout, newPasswordRequired, completeNewPassword };
+  return { user, loading, error, login, logout, newPasswordRequired, completeNewPassword, mfaRequired, mfaSetupRequired, totpSecret, verifyTotp };
 }

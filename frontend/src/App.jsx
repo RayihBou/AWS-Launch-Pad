@@ -5,7 +5,7 @@ import Login from './components/Login';
 import './App.css';
 
 export default function App() {
-  const { user, loading, error, login, logout, newPasswordRequired, completeNewPassword } = useAuth();
+  const { user, loading, error, login, logout, newPasswordRequired, completeNewPassword, mfaRequired, mfaSetupRequired, totpSecret, verifyTotp } = useAuth();
 
   if (loading) return null;
 
@@ -14,8 +14,12 @@ export default function App() {
       <Login
         onLogin={login}
         onCompleteNewPassword={completeNewPassword}
+        onVerifyTotp={verifyTotp}
         error={error}
         newPasswordRequired={newPasswordRequired}
+        mfaRequired={mfaRequired}
+        mfaSetupRequired={mfaSetupRequired}
+        totpSecret={totpSecret}
       />
     );
   }
