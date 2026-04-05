@@ -31,6 +31,25 @@ export default function useChat() {
   const [isLoading, setIsLoading] = useState(false);
   const streamRef = useRef(null);
   const messagesRef = useRef([]);
+  const historyLoaded = useRef(false);
+
+  // Load persistent history on mount
+  const loadHistory = useCallback(async () => {
+    if (historyLoaded.current || !config.agentEndpoint) return;
+    historyLoaded.current = true;
+    try {
+      const auth = await getAuthInfo();
+      if (!auth) return;
+      const endpoint = config.agentEndpoint.replace('/chat', '/history');
+      const res = await fetch(endpoint, { headers: { 'Authorization': `Bearer ${auth.token}` } });
+      const data = await res.json();
+      if (data.messages?.length) {
+        const restored = data.messages.map(m => ({ role: m.role, content: m.text }));
+        setMessages(restored);
+        messagesRef.current = restored;
+      }
+    } catch (e) { /* ignore */ }
+  }, []);
 
   const streamText = useCallback((fullText) => {
     if (streamRef.current) clearInterval(streamRef.current);
@@ -121,5 +140,5 @@ export default function useChat() {
     }
   }, [isLoading, streamText]);
 
-  return { messages, sendMessage, isConnected, isLoading };
+  return { messages, sendMessage, isConnected, isLoading, loadHistory };
 }
