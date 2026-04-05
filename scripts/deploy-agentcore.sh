@@ -1,196 +1,151 @@
 #!/bin/bash
-# AWS LaunchPad - AgentCore Deployment Script
-# Deploys AgentCore resources (Gateway, Memory, Runtime) via AWS CLI
-# Run after: cdk deploy (which creates Cognito, S3+CloudFront, Guardrails)
+# deploy-agentcore.sh - Deploy AgentCore resources (Gateway, Runtime, Endpoint)
+# Run AFTER cdk deploy. Requires: AWS CLI 2.34+, Docker, jq
+set -e
 
-set -euo pipefail
-
-# Configuration
 REGION="${AWS_REGION:-us-east-1}"
-AGENT_NAME="launchpad-assistant"
-MODEL_ID="${MODEL_ID:-anthropic.claude-sonnet-4-20250514-v1:0}"
-LANGUAGE="${LANGUAGE:-en}"
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+LANGUAGE="${LANGUAGE:-es}"
+MODEL_ID="${MODEL_ID:-us.anthropic.claude-sonnet-4-20250514-v1:0}"
 
-echo "=== AWS LaunchPad - AgentCore Deployment ==="
-echo "Region: $REGION"
-echo "Model: $MODEL_ID"
-echo "Language: $LANGUAGE"
+# Get CDK outputs
+STACK_OUTPUTS=$(aws cloudformation describe-stacks --stack-name LaunchpadStack --region $REGION --query 'Stacks[0].Outputs' --output json)
+get_output() { echo "$STACK_OUTPUTS" | python3 -c "import sys,json; [print(o['OutputValue']) for o in json.load(sys.stdin) if o['OutputKey']=='$1']"; }
 
-# Step 0: Verify Bedrock model access
-echo ""
-echo "--- Step 0: Verifying Bedrock model access ---"
-MODEL_STATUS=$(aws bedrock get-foundation-model \
-  --model-identifier "$MODEL_ID" \
-  --region "$REGION" \
-  --query 'modelDetails.modelLifecycle.status' \
-  --output text 2>/dev/null || echo "NOT_FOUND")
+USER_POOL_ID=$(get_output UserPoolId)
+CLIENT_ID=$(get_output UserPoolClientId)
+ECR_URI=$(get_output ApiProxyEcrRepositoryUri)
+GATEWAY_ROLE_ARN=$(get_output ApiProxyGatewayRoleArn)
+RUNTIME_ROLE_ARN=$(get_output ApiProxyRuntimeRoleArn)
+PROXY_FN=$(get_output ApiProxyProxyFunctionName)
+CW_ARN=$(get_output CloudWatchMcpArn)
+PRICING_ARN=$(get_output PricingMcpArn)
+WA_ARN=$(get_output WaSecurityMcpArn)
+CT_ARN=$(get_output CloudTrailMcpArn)
 
-if [ "$MODEL_STATUS" = "NOT_FOUND" ]; then
-  echo "ERROR: Model $MODEL_ID not found in region $REGION"
-  echo "Please enable model access in the Bedrock console:"
-  echo "  https://console.aws.amazon.com/bedrock/home?region=${REGION}#/modelaccess"
-  exit 1
-elif [ "$MODEL_STATUS" != "ACTIVE" ]; then
-  echo "WARNING: Model $MODEL_ID status is $MODEL_STATUS (not ACTIVE)"
-  echo "Attempting to enable model access..."
-  aws bedrock create-foundation-model-agreement \
-    --model-id "$MODEL_ID" \
-    --region "$REGION" 2>/dev/null || true
-  echo "If model access fails, enable it manually in the Bedrock console:"
-  echo "  https://console.aws.amazon.com/bedrock/home?region=${REGION}#/modelaccess"
+echo "Account: $ACCOUNT_ID | Region: $REGION"
+echo "ECR: $ECR_URI | Gateway Role: $GATEWAY_ROLE_ARN"
+
+# Step 1: Build and push Docker container
+echo "Building agent container..."
+cd agent
+docker build --platform linux/arm64 -t launchpad-agent .
+aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com
+docker tag launchpad-agent:latest ${ECR_URI}:latest
+docker push ${ECR_URI}:latest
+cd ..
+
+# Step 2: Create or update AgentCore Gateway
+echo "Creating AgentCore Gateway..."
+GATEWAY_ID=$(aws bedrock-agentcore-control list-gateways --region $REGION --query 'items[?name==`launchpad-gateway`].gatewayId' --output text 2>/dev/null || echo "")
+
+if [ -z "$GATEWAY_ID" ] || [ "$GATEWAY_ID" = "None" ]; then
+  GATEWAY_RESULT=$(aws bedrock-agentcore-control create-gateway \
+    --name "launchpad-gateway" \
+    --role-arn "$GATEWAY_ROLE_ARN" \
+    --protocol-type MCP \
+    --authorizer-type CUSTOM_JWT \
+    --authorizer-configuration "{\"customJWTAuthorizer\":{\"discoveryUrl\":\"https://cognito-idp.${REGION}.amazonaws.com/${USER_POOL_ID}/.well-known/openid-configuration\",\"allowedAudience\":[\"${CLIENT_ID}\"]}}" \
+    --region $REGION --output json)
+  GATEWAY_ID=$(echo "$GATEWAY_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['gatewayId'])")
+  echo "Gateway created: $GATEWAY_ID"
+  echo "Waiting for Gateway..."
+  sleep 30
 else
-  echo "Model $MODEL_ID is ACTIVE"
+  echo "Gateway exists: $GATEWAY_ID"
 fi
 
-# Read CDK outputs
-echo ""
-echo "--- Reading CDK stack outputs ---"
-STACK_OUTPUTS=$(aws cloudformation describe-stacks \
-  --stack-name LaunchpadStack \
-  --region "$REGION" \
-  --query 'Stacks[0].Outputs' \
-  --output json 2>/dev/null || echo "[]")
+GATEWAY_URL=$(aws bedrock-agentcore-control get-gateway --gateway-identifier $GATEWAY_ID --region $REGION --query 'gatewayUrl' --output text)
+echo "Gateway URL: $GATEWAY_URL"
 
-get_output() {
-  echo "$STACK_OUTPUTS" | python3 -c "
-import sys, json
-outputs = json.load(sys.stdin)
-for o in outputs:
-    if o['OutputKey'] == '$1':
-        print(o['OutputValue'])
-        break
-"
+# Step 3: Create MCP targets
+create_lambda_target() {
+  local NAME=$1 DESC=$2 LAMBDA_ARN=$3 SCHEMA=$4
+  EXISTING=$(aws bedrock-agentcore-control list-gateway-targets --gateway-identifier $GATEWAY_ID --region $REGION --query "items[?name==\`$NAME\`].targetId" --output text 2>/dev/null || echo "")
+  if [ -z "$EXISTING" ] || [ "$EXISTING" = "None" ]; then
+    aws bedrock-agentcore-control create-gateway-target \
+      --gateway-identifier $GATEWAY_ID --name "$NAME" --description "$DESC" \
+      --target-configuration "{\"mcp\":{\"lambda\":{\"lambdaArn\":\"${LAMBDA_ARN}\",\"toolSchema\":{\"inlinePayload\":$SCHEMA}}}}" \
+      --credential-provider-configurations '[{"credentialProviderType":"GATEWAY_IAM_ROLE"}]' \
+      --region $REGION --query 'targetId' --output text
+    echo "  Created target: $NAME"
+  else
+    echo "  Target exists: $NAME ($EXISTING)"
+  fi
 }
 
-USER_POOL_ID=$(get_output "UserPoolId")
-GUARDRAIL_ID=$(get_output "GuardrailId")
-CLOUDFRONT_URL=$(get_output "CloudFrontUrl")
-
-echo "UserPoolId: $USER_POOL_ID"
-echo "GuardrailId: $GUARDRAIL_ID"
-echo "CloudFrontUrl: $CLOUDFRONT_URL"
-
-# Step 1: Create AgentCore Gateway
-echo ""
-echo "--- Step 1: Creating AgentCore Gateway ---"
-GATEWAY_ID=$(aws bedrock-agentcore create-gateway \
-  --name "${AGENT_NAME}-gateway" \
-  --region "$REGION" \
-  --query 'gatewayId' \
-  --output text 2>/dev/null || echo "")
-
-if [ -z "$GATEWAY_ID" ]; then
-  echo "Gateway may already exist, looking up..."
-  GATEWAY_ID=$(aws bedrock-agentcore list-gateways \
-    --region "$REGION" \
-    --query "gateways[?name=='${AGENT_NAME}-gateway'].gatewayId" \
-    --output text 2>/dev/null || echo "")
+# AWS Knowledge MCP (remote, no Lambda)
+EXISTING_KN=$(aws bedrock-agentcore-control list-gateway-targets --gateway-identifier $GATEWAY_ID --region $REGION --query "items[?name==\`aws-knowledge-mcp\`].targetId" --output text 2>/dev/null || echo "")
+if [ -z "$EXISTING_KN" ] || [ "$EXISTING_KN" = "None" ]; then
+  aws bedrock-agentcore-control create-gateway-target \
+    --gateway-identifier $GATEWAY_ID --name "aws-knowledge-mcp" --description "AWS documentation and best practices" \
+    --target-configuration '{"mcp":{"mcpRemoteServer":{"url":"https://knowledge-mcp.global.api.aws"}}}' \
+    --region $REGION --query 'targetId' --output text
+  echo "  Created target: aws-knowledge-mcp"
 fi
 
-echo "Gateway ID: $GATEWAY_ID"
+create_lambda_target "cloudwatch-mcp" "CloudWatch monitoring" "$CW_ARN" \
+  '[{"name":"describe_alarms","description":"List CloudWatch alarms","inputSchema":{"type":"object","properties":{"state":{"type":"string"}},"required":[]}},{"name":"get_metric_statistics","description":"Get metric stats","inputSchema":{"type":"object","properties":{"namespace":{"type":"string"},"metric_name":{"type":"string"},"dimension_name":{"type":"string"},"dimension_value":{"type":"string"},"hours":{"type":"number"}},"required":["namespace","metric_name"]}},{"name":"list_log_groups","description":"List CloudWatch log groups","inputSchema":{"type":"object","properties":{"prefix":{"type":"string"},"limit":{"type":"number"}},"required":[]}}]'
 
-# Step 2: Add MCP Server targets to Gateway
-echo ""
-echo "--- Step 2: Adding MCP Server targets ---"
+create_lambda_target "pricing-mcp" "AWS Pricing" "$PRICING_ARN" \
+  '[{"name":"get_products","description":"Get pricing for AWS services. For EC2, pass instance_type and region.","inputSchema":{"type":"object","properties":{"service_code":{"type":"string"},"instance_type":{"type":"string"},"region":{"type":"string"},"operating_system":{"type":"string"}},"required":["service_code"]}},{"name":"describe_services","description":"List AWS services in Pricing API","inputSchema":{"type":"object","properties":{"service_code":{"type":"string"}},"required":[]}},{"name":"get_attribute_values","description":"Get pricing attribute values","inputSchema":{"type":"object","properties":{"service_code":{"type":"string"},"attribute_name":{"type":"string"}},"required":["service_code","attribute_name"]}}]'
 
-# AWS Knowledge MCP Server (remote, managed by AWS)
-aws bedrock-agentcore create-gateway-target \
-  --gateway-id "$GATEWAY_ID" \
-  --name "aws-knowledge-mcp" \
-  --target-configuration '{"mcpServerConfiguration":{"url":"https://knowledge-mcp.global.api.aws"}}' \
-  --region "$REGION" 2>/dev/null && echo "Added: AWS Knowledge MCP" || echo "AWS Knowledge MCP: already exists or skipped"
+create_lambda_target "wa-security-mcp" "Security Hub assessment" "$WA_ARN" \
+  '[{"name":"get_findings","description":"Get Security Hub findings","inputSchema":{"type":"object","properties":{"severity":{"type":"string"},"max_results":{"type":"number"}},"required":[]}},{"name":"list_standards","description":"List security standards","inputSchema":{"type":"object","properties":{},"required":[]}},{"name":"get_guardduty_findings","description":"Get GuardDuty findings","inputSchema":{"type":"object","properties":{"detector_id":{"type":"string"}},"required":[]}}]'
 
-# CloudWatch MCP Server (local, runs as tool)
-aws bedrock-agentcore create-gateway-target \
-  --gateway-id "$GATEWAY_ID" \
-  --name "cloudwatch-mcp" \
-  --target-configuration '{"lambdaConfiguration":{"toolSchema":{"name":"cloudwatch-mcp","description":"CloudWatch metrics, alarms, and logs"}}}' \
-  --region "$REGION" 2>/dev/null && echo "Added: CloudWatch MCP" || echo "CloudWatch MCP: already exists or skipped"
+create_lambda_target "cloudtrail-mcp" "CloudTrail audit" "$CT_ARN" \
+  '[{"name":"lookup_events","description":"Look up CloudTrail events","inputSchema":{"type":"object","properties":{"lookup_attributes":{"type":"object"},"max_results":{"type":"number"}},"required":[]}},{"name":"describe_trails","description":"Describe trails","inputSchema":{"type":"object","properties":{},"required":[]}},{"name":"get_trail_status","description":"Get trail status","inputSchema":{"type":"object","properties":{"trail_name":{"type":"string"}},"required":["trail_name"]}}]'
 
-# AWS Pricing MCP Server (local, runs as tool)
-aws bedrock-agentcore create-gateway-target \
-  --gateway-id "$GATEWAY_ID" \
-  --name "pricing-mcp" \
-  --target-configuration '{"lambdaConfiguration":{"toolSchema":{"name":"pricing-mcp","description":"AWS service pricing and cost estimates"}}}' \
-  --region "$REGION" 2>/dev/null && echo "Added: Pricing MCP" || echo "Pricing MCP: already exists or skipped"
+# Step 4: Create or update AgentCore Runtime
+echo "Creating AgentCore Runtime..."
+RUNTIME_ID=$(aws bedrock-agentcore-control list-agent-runtimes --region $REGION --query "agentRuntimeSummaries[?agentRuntimeName==\`launchpad_strands\`].agentRuntimeId" --output text 2>/dev/null || echo "")
 
-# WA Security MCP Server (local, runs as tool)
-aws bedrock-agentcore create-gateway-target \
-  --gateway-id "$GATEWAY_ID" \
-  --name "wa-security-mcp" \
-  --target-configuration '{"lambdaConfiguration":{"toolSchema":{"name":"wa-security-mcp","description":"Well-Architected Security assessment"}}}' \
-  --region "$REGION" 2>/dev/null && echo "Added: WA Security MCP" || echo "WA Security MCP: already exists or skipped"
-
-# CloudTrail MCP Server (local, runs as tool)
-aws bedrock-agentcore create-gateway-target \
-  --gateway-id "$GATEWAY_ID" \
-  --name "cloudtrail-mcp" \
-  --target-configuration '{"lambdaConfiguration":{"toolSchema":{"name":"cloudtrail-mcp","description":"CloudTrail event history and audit"}}}' \
-  --region "$REGION" 2>/dev/null && echo "Added: CloudTrail MCP" || echo "CloudTrail MCP: already exists or skipped"
-
-# Get Gateway endpoint
-GATEWAY_ENDPOINT=$(aws bedrock-agentcore get-gateway \
-  --gateway-id "$GATEWAY_ID" \
-  --region "$REGION" \
-  --query 'endpoint' \
-  --output text 2>/dev/null || echo "")
-
-echo "Gateway Endpoint: $GATEWAY_ENDPOINT"
-
-# Step 3: Create Memory Store
-echo ""
-echo "--- Step 3: Creating Memory Store ---"
-MEMORY_STORE_ID=$(aws bedrock-agentcore create-memory-store \
-  --name "${AGENT_NAME}-memory" \
-  --region "$REGION" \
-  --query 'memoryStoreId' \
-  --output text 2>/dev/null || echo "")
-
-if [ -z "$MEMORY_STORE_ID" ]; then
-  echo "Memory store may already exist, looking up..."
-  MEMORY_STORE_ID=$(aws bedrock-agentcore list-memory-stores \
-    --region "$REGION" \
-    --query "memoryStores[?name=='${AGENT_NAME}-memory'].memoryStoreId" \
-    --output text 2>/dev/null || echo "")
+if [ -z "$RUNTIME_ID" ] || [ "$RUNTIME_ID" = "None" ]; then
+  RUNTIME_RESULT=$(aws bedrock-agentcore-control create-agent-runtime \
+    --agent-runtime-name "launchpad_strands" \
+    --role-arn "$RUNTIME_ROLE_ARN" \
+    --agent-runtime-artifact "{\"containerConfiguration\":{\"containerUri\":\"${ECR_URI}:latest\"}}" \
+    --network-configuration '{"networkMode":"PUBLIC"}' \
+    --environment-variables "{\"MODEL_ID\":\"${MODEL_ID}\",\"LANGUAGE\":\"${LANGUAGE}\",\"GATEWAY_ENDPOINT\":\"${GATEWAY_URL}\"}" \
+    --region $REGION --output json)
+  RUNTIME_ID=$(echo "$RUNTIME_RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['agentRuntimeId'])")
+  echo "Runtime created: $RUNTIME_ID"
+  echo "Waiting for Runtime..."
+  sleep 30
+else
+  echo "Runtime exists: $RUNTIME_ID"
+  aws bedrock-agentcore-control update-agent-runtime \
+    --agent-runtime-id "$RUNTIME_ID" \
+    --agent-runtime-artifact "{\"containerConfiguration\":{\"containerUri\":\"${ECR_URI}:latest\"}}" \
+    --role-arn "$RUNTIME_ROLE_ARN" \
+    --network-configuration '{"networkMode":"PUBLIC"}' \
+    --environment-variables "{\"MODEL_ID\":\"${MODEL_ID}\",\"LANGUAGE\":\"${LANGUAGE}\",\"GATEWAY_ENDPOINT\":\"${GATEWAY_URL}\"}" \
+    --region $REGION --query 'agentRuntimeVersion' --output text
 fi
 
-echo "Memory Store ID: $MEMORY_STORE_ID"
+# Step 5: Create or update endpoint
+ENDPOINT_STATUS=$(aws bedrock-agentcore-control get-agent-runtime-endpoint --agent-runtime-id "$RUNTIME_ID" --endpoint-name "default_endpoint" --region $REGION --query 'status' --output text 2>/dev/null || echo "NONE")
 
-# Step 4: Deploy agent to AgentCore Runtime
-echo ""
-echo "--- Step 4: Deploying agent to AgentCore Runtime ---"
+if [ "$ENDPOINT_STATUS" = "NONE" ]; then
+  aws bedrock-agentcore-control create-agent-runtime-endpoint \
+    --agent-runtime-id "$RUNTIME_ID" --name "default_endpoint" --region $REGION
+  echo "Endpoint created"
+  sleep 15
+fi
 
-# Build and push container
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-ECR_REPO="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${AGENT_NAME}"
+RUNTIME_ARN="arn:aws:bedrock-agentcore:${REGION}:${ACCOUNT_ID}:runtime/${RUNTIME_ID}"
 
-echo "Building agent container..."
-docker build -t "$AGENT_NAME" ./agent/
+# Step 6: Update Lambda Proxy with Runtime ARN
+echo "Updating proxy Lambda..."
+aws lambda update-function-configuration \
+  --function-name "$PROXY_FN" \
+  --environment "{\"Variables\":{\"RUNTIME_ARN\":\"${RUNTIME_ARN}\",\"QUALIFIER\":\"default_endpoint\"}}" \
+  --region $REGION --query 'LastModified' --output text
 
-echo "Pushing to ECR..."
-aws ecr describe-repositories --repository-names "$AGENT_NAME" --region "$REGION" 2>/dev/null || \
-  aws ecr create-repository --repository-name "$AGENT_NAME" --region "$REGION"
-
-aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"
-docker tag "$AGENT_NAME" "$ECR_REPO:latest"
-docker push "$ECR_REPO:latest"
-
-echo "Deploying to AgentCore Runtime..."
-aws bedrock-agentcore create-runtime \
-  --name "$AGENT_NAME" \
-  --container-configuration "{\"imageUri\":\"${ECR_REPO}:latest\",\"environmentVariables\":{\"MODEL_ID\":\"${MODEL_ID}\",\"LANGUAGE\":\"${LANGUAGE}\",\"GATEWAY_ENDPOINT\":\"${GATEWAY_ENDPOINT}\",\"MEMORY_STORE_ID\":\"${MEMORY_STORE_ID}\",\"GUARDRAIL_ID\":\"${GUARDRAIL_ID}\"}}" \
-  --region "$REGION" 2>/dev/null && echo "Runtime deployed" || echo "Runtime may already exist"
-
-# Step 5: Output summary
 echo ""
 echo "=== Deployment Complete ==="
-echo "CloudFront URL: $CLOUDFRONT_URL"
-echo "Gateway ID: $GATEWAY_ID"
-echo "Gateway Endpoint: $GATEWAY_ENDPOINT"
-echo "Memory Store ID: $MEMORY_STORE_ID"
-echo "Cognito User Pool: $USER_POOL_ID"
+echo "Gateway: $GATEWAY_ID ($GATEWAY_URL)"
+echo "Runtime: $RUNTIME_ID"
+echo "Runtime ARN: $RUNTIME_ARN"
 echo ""
-echo "Next: Create users with scripts/create-users.sh or via self-signup in the frontend"
-echo ""
-echo "NOTE: AgentCore API names may vary. Check the latest AWS CLI reference"
-echo "for bedrock-agentcore commands if any step fails."
+echo "Next: Update frontend/.env with VITE_AGENT_ENDPOINT and rebuild"

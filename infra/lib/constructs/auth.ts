@@ -20,7 +20,7 @@ export class LaunchpadAuth extends Construct {
         requireLowercase: true,
         requireDigits: true,
       },
-      mfa: cognito.Mfa.OPTIONAL,
+      mfa: cognito.Mfa.REQUIRED,
       mfaSecondFactor: { sms: false, otp: true },
     });
 
