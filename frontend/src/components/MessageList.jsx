@@ -48,6 +48,13 @@ export default function MessageList({ messages, isLoading }) {
         <div key={i} className={`message message--${msg.role}`}>
           <span className="message__label">{msg.role === 'user' ? t('chat.you') : t('chat.assistant')}</span>
           <div className="message__bubble">
+            {msg.attachment && (
+              <div className="message__attachment">
+                {msg.attachment.preview
+                  ? <img src={msg.attachment.preview} alt={msg.attachment.name} />
+                  : <span>{msg.attachment.name}</span>}
+              </div>
+            )}
             {msg.role === 'assistant'
               ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={{a: ({...props}) => <a {...props} target="_blank" rel="noopener noreferrer" />}}>{msg.content}</ReactMarkdown>
               : msg.content}

@@ -45,6 +45,10 @@
   color: #0f1419;
 }
 
+.message__attachment { margin-bottom: 6px; }
+.message__attachment img { max-width: 200px; max-height: 150px; border-radius: 6px; display: block; }
+.message__attachment span { font-size: 0.8rem; opacity: 0.8; }
+
 .message--assistant .message__bubble {
   background: var(--color-background-secondary);
   color: var(--color-text-primary);

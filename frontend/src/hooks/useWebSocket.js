@@ -78,10 +78,10 @@ export default function useChat() {
     }, 12);
   }, []);
 
-  const sendMessage = useCallback(async (text) => {
-    if (!text.trim() || isLoading) return;
+  const sendMessage = useCallback(async (text, attachment = null) => {
+    if ((!text.trim() && !attachment) || isLoading) return;
 
-    const userMsg = { role: 'user', content: text };
+    const userMsg = { role: 'user', content: text || 'Analiza este archivo', attachment: attachment?.preview ? { preview: attachment.preview, name: attachment.name } : attachment?.name ? { name: attachment.name } : null };
     setMessages((prev) => {
       const updated = [...prev, userMsg];
       messagesRef.current = updated;
@@ -100,17 +100,20 @@ export default function useChat() {
       const headers = { 'Content-Type': 'application/json' };
       if (auth) headers['Authorization'] = `Bearer ${auth.token}`;
 
-      // Send full history
       const history = messagesRef.current
         .filter(m => m.content && m.content.length > 0)
         .map(m => ({ role: m.role, text: m.content }));
 
-      const body = JSON.stringify({
-        input: { text },
+      const payload = {
+        input: { text: text || 'Analiza este archivo' },
         session_id: sessionId,
         role: auth?.role || 'Viewer',
         history,
-      });
+      };
+      if (attachment) {
+        payload.attachment = { base64: attachment.base64, type: attachment.type, name: attachment.name };
+      }
+      const body = JSON.stringify(payload);
 
       // Retry logic for timeout (503)
       let data;

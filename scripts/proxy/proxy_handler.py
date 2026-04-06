@@ -47,25 +47,32 @@ def handler(event, context):
     method = event.get('requestContext', {}).get('http', {}).get('method', 'POST')
     uid, role, token = get_user(headers)
 
-    # GET /history - return saved conversation
     if method == 'GET':
-        history = load_history(uid)
-        return {'statusCode': 200, 'body': json.dumps({'messages': history})}
+        return {'statusCode': 200, 'body': json.dumps({'messages': load_history(uid)})}
 
-    # POST /chat - process message
     try:
         body = event.get('body', '{}')
         if event.get('isBase64Encoded'):
             body = base64.b64decode(body).decode()
         payload = json.loads(body) if isinstance(body, str) else body
         text = payload.get('input', {}).get('text', '')
+        attachment = payload.get('attachment')  # {base64, type, name}
 
         history = load_history(uid)
         history.append({'role': 'user', 'text': text})
 
+        agent_payload = {
+            'input': {'text': text},
+            'role': role,
+            'history': history[-MAX_HISTORY:],
+            'token': token,
+        }
+        if attachment:
+            agent_payload['attachment'] = attachment
+
         response = agentcore.invoke_agent_runtime(
             agentRuntimeArn=RUNTIME_ARN, qualifier=QUALIFIER,
-            payload=json.dumps({'input': {'text': text}, 'role': role, 'history': history[-MAX_HISTORY:], 'token': token}).encode(),
+            payload=json.dumps(agent_payload).encode(),
         )
         result = response.get('response', b'').read().decode() if hasattr(response.get('response', b''), 'read') else '{}'
         assistant_text = json.loads(result).get('output', {}).get('text', '')

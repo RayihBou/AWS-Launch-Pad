@@ -144,11 +144,10 @@ def create_agent(token=None):
 
     return Agent(model=model, tools=all_tools, system_prompt=SYSTEM), None
 
-def process_request(text, history=None, role='Viewer', token=None):
+def process_request(text, history=None, role='Viewer', token=None, attachment=None):
     """Process a chat request with conversation history."""
     agent, mcp = create_agent(token)
     try:
-        # Build context from history
         context = ""
         if history:
             parts = []
@@ -162,6 +161,32 @@ def process_request(text, history=None, role='Viewer', token=None):
                 context = "Previous conversation:\n" + "\n".join(parts[-10:]) + "\n\n"
 
         prompt = f"{context}[User role: {role}]\nUser: {text}"
+
+        # If attachment, use Bedrock Converse API directly (Strands doesn't support multimodal yet)
+        if attachment:
+            import base64 as b64
+            content_blocks = [{'text': prompt}]
+            mime = attachment.get('type', 'image/jpeg')
+            data = b64.b64decode(attachment['base64'])
+
+            if mime.startswith('image/'):
+                fmt = mime.split('/')[-1]
+                if fmt == 'jpg': fmt = 'jpeg'
+                content_blocks.append({'image': {'format': fmt, 'source': {'bytes': data}}})
+            elif mime == 'application/pdf':
+                import re
+                name = re.sub(r'[^a-zA-Z0-9\s\-\(\)\[\]]', '', attachment.get('name', 'document').rsplit('.', 1)[0])
+                name = re.sub(r'\s+', ' ', name).strip() or 'document'
+                content_blocks.append({'document': {'format': 'pdf', 'name': name, 'source': {'bytes': data}}})
+
+            r = aws('bedrock-runtime').converse(
+                modelId=MODEL_ID,
+                messages=[{'role': 'user', 'content': content_blocks}],
+                system=[{'text': SYSTEM}],
+                inferenceConfig={'maxTokens': 4096, 'temperature': 0.3},
+            )
+            return r['output']['message']['content'][0]['text']
+
         result = agent(prompt)
         return str(result)
     except Exception as e:
@@ -180,8 +205,9 @@ class Handler(BaseHTTPRequestHandler):
         history = body.get('history', [])
         role = body.get('role', 'Viewer')
         token = body.get('token', '')
+        attachment = body.get('attachment')
 
-        out = process_request(text, history, role, token)
+        out = process_request(text, history, role, token, attachment)
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
