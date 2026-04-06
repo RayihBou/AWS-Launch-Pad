@@ -4,15 +4,16 @@ import boto3
 import base64
 import logging
 import time
+import uuid
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 agentcore = boto3.client('bedrock-agentcore', region_name='us-east-1')
-ddb = boto3.resource('dynamodb', region_name='us-east-1').Table('launchpad-conversations')
+ddb = boto3.resource('dynamodb', region_name='us-east-1').Table('launchpad-conversations-v2')
 RUNTIME_ARN = os.environ.get('RUNTIME_ARN', '')
 QUALIFIER = os.environ.get('QUALIFIER', 'default_endpoint')
-MAX_HISTORY = 50  # Increased from 20
+MAX_HISTORY = 50
 
 def decode_jwt(token):
     try:
@@ -30,33 +31,61 @@ def get_user(headers):
     role = 'Operator' if 'Operator' in groups else 'Viewer'
     return uid, role, token
 
-def load_history(uid):
+def load_history(uid, conv_id):
     try:
-        r = ddb.get_item(Key={'userId': uid})
+        r = ddb.get_item(Key={'userId': uid, 'conversationId': conv_id})
         return r.get('Item', {}).get('messages', [])
     except: return []
 
-def save_history(uid, msgs):
+def save_history(uid, conv_id, msgs, title=None):
     try:
-        ddb.put_item(Item={'userId': uid, 'messages': msgs[-MAX_HISTORY:], 'updatedAt': int(time.time())})
+        item = {'userId': uid, 'conversationId': conv_id, 'messages': msgs[-MAX_HISTORY:], 'updatedAt': int(time.time())}
+        if title:
+            item['title'] = title
+        ddb.put_item(Item=item)
     except Exception as e:
         logger.error(f"Save error: {e}")
+
+def list_conversations(uid):
+    try:
+        r = ddb.query(
+            KeyConditionExpression='userId = :uid',
+            ExpressionAttributeValues={':uid': uid},
+            ProjectionExpression='conversationId, title, updatedAt',
+            ScanIndexForward=False,
+        )
+        return r.get('Items', [])
+    except: return []
 
 def handler(event, context):
     headers = event.get('headers', {})
     method = event.get('requestContext', {}).get('http', {}).get('method', 'POST')
+    path = event.get('requestContext', {}).get('http', {}).get('path', '')
     uid, role, token = get_user(headers)
+    qs = event.get('queryStringParameters') or {}
+    conv_id = qs.get('conversationId', '')
 
+    # GET /conversations - list all conversations for user
+    if method == 'GET' and '/conversations' in path:
+        convs = list_conversations(uid)
+        return {'statusCode': 200, 'body': json.dumps({'conversations': convs})}
+
+    # GET /history?conversationId=X - load specific conversation
     if method == 'GET':
-        return {'statusCode': 200, 'body': json.dumps({'messages': load_history(uid)})}
+        if not conv_id:
+            return {'statusCode': 200, 'body': json.dumps({'messages': []})}
+        return {'statusCode': 200, 'body': json.dumps({'messages': load_history(uid, conv_id)})}
 
+    # DELETE /history?conversationId=X - delete specific conversation
     if method == 'DELETE':
-        try:
-            ddb.delete_item(Key={'userId': uid})
-        except Exception as e:
-            logger.error(f"Delete error: {e}")
+        if conv_id:
+            try:
+                ddb.delete_item(Key={'userId': uid, 'conversationId': conv_id})
+            except Exception as e:
+                logger.error(f"Delete error: {e}")
         return {'statusCode': 200, 'body': json.dumps({'ok': True})}
 
+    # POST /chat
     try:
         body = event.get('body', '{}')
         if event.get('isBase64Encoded'):
@@ -64,14 +93,18 @@ def handler(event, context):
         payload = json.loads(body) if isinstance(body, str) else body
         text = payload.get('input', {}).get('text', '')
         attachment = payload.get('attachment')
+        conv_id = payload.get('conversationId', str(uuid.uuid4()))
 
-        history = load_history(uid)
+        history = load_history(uid, conv_id)
         history.append({'role': 'user', 'text': text})
+
+        # Generate title from first message
+        title = text[:60] if len(history) <= 1 else None
 
         agent_payload = {
             'input': {'text': text},
             'role': role,
-            'history': history[-20:],  # Send last 20 to agent for context
+            'history': history[-20:],
             'token': token,
             'actor_id': uid,
         }
@@ -86,9 +119,12 @@ def handler(event, context):
         assistant_text = json.loads(result).get('output', {}).get('text', '')
 
         history.append({'role': 'assistant', 'text': assistant_text})
-        save_history(uid, history)
+        save_history(uid, conv_id, history, title)
 
-        return {'statusCode': 200, 'body': result}
+        # Include conversationId in response
+        result_data = json.loads(result)
+        result_data['conversationId'] = conv_id
+        return {'statusCode': 200, 'body': json.dumps(result_data)}
     except Exception as e:
         logger.error(f"Error: {e}")
         return {'statusCode': 200, 'body': json.dumps({'output': {'text': f'Error: {e}'}})}

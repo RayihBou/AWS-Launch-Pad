@@ -3,8 +3,6 @@ import { CognitoUserPool } from 'amazon-cognito-identity-js';
 import { config } from '../config';
 import { t } from '../i18n';
 
-const sessionId = crypto.randomUUID();
-
 function getAuthInfo() {
   if (!config.userPoolId) return null;
   const pool = new CognitoUserPool({
@@ -32,30 +30,44 @@ export default function useChat() {
   const streamRef = useRef(null);
   const messagesRef = useRef([]);
   const historyLoaded = useRef(false);
+  const conversationIdRef = useRef(crypto.randomUUID());
 
-  // Load persistent history on mount
   const loadHistory = useCallback(async () => {
     if (historyLoaded.current || !config.agentEndpoint) return;
     historyLoaded.current = true;
     try {
       const auth = await getAuthInfo();
       if (!auth) return;
-      const endpoint = config.agentEndpoint.replace('/chat', '/history');
-      const res = await fetch(endpoint, { headers: { 'Authorization': `Bearer ${auth.token}` } });
-      const data = await res.json();
-      if (data.messages?.length) {
-        const restored = data.messages.map(m => ({ role: m.role, content: m.text }));
-        setMessages(restored);
-        messagesRef.current = restored;
+      // Load most recent conversation
+      const convsEndpoint = config.agentEndpoint.replace('/chat', '/conversations');
+      const convsRes = await fetch(convsEndpoint, { headers: { 'Authorization': `Bearer ${auth.token}` } });
+      const convsData = await convsRes.json();
+      if (convsData.conversations?.length) {
+        const latest = convsData.conversations[0];
+        conversationIdRef.current = latest.conversationId;
+        const endpoint = config.agentEndpoint.replace('/chat', '/history') + `?conversationId=${latest.conversationId}`;
+        const res = await fetch(endpoint, { headers: { 'Authorization': `Bearer ${auth.token}` } });
+        const data = await res.json();
+        if (data.messages?.length) {
+          const restored = data.messages.map(m => ({ role: m.role, content: m.text }));
+          setMessages(restored);
+          messagesRef.current = restored;
+        }
       }
     } catch (e) { /* ignore */ }
+  }, []);
+
+  const clearConversation = useCallback(async () => {
+    if (streamRef.current) clearInterval(streamRef.current);
+    conversationIdRef.current = crypto.randomUUID();
+    setMessages([]);
+    messagesRef.current = [];
   }, []);
 
   const streamText = useCallback((fullText) => {
     if (streamRef.current) clearInterval(streamRef.current);
     let i = 0;
     const chunkSize = 3;
-    // Add empty assistant message
     setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
     streamRef.current = setInterval(() => {
       i += chunkSize;
@@ -76,13 +88,6 @@ export default function useChat() {
         return copy;
       });
     }, 12);
-  }, []);
-
-  const clearConversation = useCallback(async () => {
-    if (streamRef.current) clearInterval(streamRef.current);
-    setMessages([]);
-    messagesRef.current = [];
-    await clearHistory();
   }, []);
 
   const sendMessage = useCallback(async (text, attachment = null) => {
@@ -113,7 +118,7 @@ export default function useChat() {
 
       const payload = {
         input: { text: text || 'Analiza este archivo' },
-        session_id: sessionId,
+        conversationId: conversationIdRef.current,
         role: auth?.role || 'Viewer',
         history,
       };
@@ -122,7 +127,6 @@ export default function useChat() {
       }
       const body = JSON.stringify(payload);
 
-      // Retry logic for timeout (503)
       let data;
       for (let attempt = 0; attempt < 3; attempt++) {
         const response = await fetch(config.agentEndpoint, { method: 'POST', headers, body });
@@ -138,6 +142,7 @@ export default function useChat() {
         break;
       }
 
+      if (data?.conversationId) conversationIdRef.current = data.conversationId;
       const content = data?.output?.text || data?.body || JSON.stringify(data || {});
       streamText(content);
     } catch (err) {
@@ -151,13 +156,4 @@ export default function useChat() {
   }, [isLoading, streamText]);
 
   return { messages, sendMessage, isConnected, isLoading, loadHistory, clearConversation };
-}
-
-async function clearHistory() {
-  try {
-    const auth = await getAuthInfo();
-    if (!auth) return;
-    const endpoint = config.agentEndpoint.replace('/chat', '/history');
-    await fetch(endpoint, { method: 'DELETE', headers: { 'Authorization': `Bearer ${auth.token}` } });
-  } catch (e) { /* ignore */ }
 }
