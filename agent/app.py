@@ -17,7 +17,7 @@ import boto3
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("launchpad")
 
-MODEL_ID = os.environ.get('MODEL_ID', 'us.anthropic.claude-sonnet-4-5-20250929-v1:0')
+MODEL_ID = os.environ.get('MODEL_ID', 'us.anthropic.claude-sonnet-4-6')
 LANGUAGE = os.environ.get('LANGUAGE', 'en')
 REGION = os.environ.get('AWS_REGION', 'us-east-1')
 GATEWAY_URL = os.environ.get('GATEWAY_ENDPOINT', '')

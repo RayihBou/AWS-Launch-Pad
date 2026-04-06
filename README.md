@@ -22,7 +22,7 @@ graph LR
     A[Browser] --> B[CloudFront]
     B --> C[AgentCore<br/>Runtime]
     C --> D[Strands<br/>Agents SDK]
-    D --> E[Claude Sonnet 4.5<br/>Bedrock]
+    D --> E[Claude Sonnet 4.6<br/>Bedrock]
     D --> F[AgentCore<br/>Gateway]
     F --> G[AWS Knowledge<br/>MCP Server]
     F --> H[AWS Pricing<br/>MCP Server]
@@ -41,7 +41,7 @@ graph LR
 | Frontend | React + S3 + CloudFront |
 | Agent Runtime | Amazon Bedrock AgentCore Runtime |
 | Agent Framework | Strands Agents SDK |
-| Model | Claude Sonnet 4.5 (configurable) |
+| Model | Claude Sonnet 4.6 (configurable) |
 | Tools | AgentCore Gateway + MCP Servers |
 | Auth | AgentCore Identity + Amazon Cognito |
 | Security | AgentCore Policy (Cedar) + Bedrock Guardrails |
