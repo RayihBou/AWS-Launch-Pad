@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { CognitoUserPool } from 'amazon-cognito-identity-js';
 import { config } from '../config';
 import { t } from '../i18n';
@@ -36,12 +36,43 @@ async function apiCall(path, method = 'GET', body = null) {
 export default function useChat() {
   const [messages, setMessages] = useState([]);
   const [conversations, setConversations] = useState([]);
-  const [isConnected, setIsConnected] = useState(!!config.agentEndpoint);
+  const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const streamRef = useRef(null);
   const messagesRef = useRef([]);
   const historyLoaded = useRef(false);
   const conversationIdRef = useRef(crypto.randomUUID());
+  const wsRef = useRef(null);
+  const pendingResolve = useRef(null);
+
+  // WebSocket connection
+  const connectWs = useCallback(async () => {
+    const auth = await getAuthInfo();
+    if (!auth || !config.wsEndpoint) return;
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+
+    const ws = new WebSocket(`${config.wsEndpoint}?token=${auth.token}`);
+    ws.onopen = () => setIsConnected(true);
+    ws.onclose = () => {
+      setIsConnected(false);
+      // Reconnect after 3s
+      setTimeout(() => connectWs(), 3000);
+    };
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'thinking') return; // ignore, we show our own indicator
+        if (data.type === 'response' || data.type === 'error') {
+          if (data.conversationId) conversationIdRef.current = data.conversationId;
+          const text = data.output?.text || '';
+          streamText(text);
+          setIsLoading(false);
+          loadConversations();
+        }
+      } catch (e) { /* ignore */ }
+    };
+    wsRef.current = ws;
+  }, []);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -73,9 +104,10 @@ export default function useChat() {
   const loadHistory = useCallback(async () => {
     if (historyLoaded.current || !config.agentEndpoint) return;
     historyLoaded.current = true;
+    await connectWs();
     const convs = await loadConversations();
     if (convs.length) await loadConversation(convs[0].conversationId);
-  }, [loadConversations, loadConversation]);
+  }, [loadConversations, loadConversation, connectWs]);
 
   const clearConversation = useCallback(() => {
     if (streamRef.current) clearInterval(streamRef.current);
@@ -139,58 +171,40 @@ export default function useChat() {
     });
     setIsLoading(true);
 
-    if (!config.agentEndpoint) {
-      streamText(t('chat.welcome'));
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const auth = await getAuthInfo();
-      const headers = { 'Content-Type': 'application/json' };
-      if (auth) headers['Authorization'] = `Bearer ${auth.token}`;
-
-      const history = messagesRef.current
-        .filter(m => m.content && m.content.length > 0)
-        .map(m => ({ role: m.role, text: m.content }));
-
+    // Try WebSocket first, fallback to HTTP
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
       const payload = {
+        action: 'sendMessage',
         input: { text: text || 'Analiza este archivo' },
         conversationId: conversationIdRef.current,
-        role: auth?.role || 'Viewer',
-        history,
       };
       if (attachment) {
         payload.attachment = { base64: attachment.base64, type: attachment.type, name: attachment.name };
       }
-      const body = JSON.stringify(payload);
+      wsRef.current.send(JSON.stringify(payload));
+      return; // Response comes via onmessage
+    }
 
-      let data;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const response = await fetch(config.agentEndpoint, { method: 'POST', headers, body });
-        if (response.status === 503 && attempt < 2) {
-          setMessages((prev) => {
-            const copy = [...prev];
-            if (copy[copy.length - 1]?.role === 'assistant') copy.pop();
-            return [...copy, { role: 'assistant', content: 'Procesando consulta compleja, un momento...' }];
-          });
-          continue;
-        }
-        data = await response.json();
-        break;
-      }
+    // HTTP fallback (for when WS is not connected)
+    try {
+      const auth = await getAuthInfo();
+      const headers = { 'Content-Type': 'application/json' };
+      if (auth) headers['Authorization'] = `Bearer ${auth.token}`;
+      const payload = {
+        input: { text: text || 'Analiza este archivo' },
+        conversationId: conversationIdRef.current,
+        role: auth?.role || 'Viewer',
+        history: messagesRef.current.filter(m => m.content?.length > 0).map(m => ({ role: m.role, text: m.content })),
+      };
+      if (attachment) payload.attachment = { base64: attachment.base64, type: attachment.type, name: attachment.name };
 
+      const response = await fetch(config.agentEndpoint, { method: 'POST', headers, body: JSON.stringify(payload) });
+      const data = await response.json();
       if (data?.conversationId) conversationIdRef.current = data.conversationId;
-      const content = data?.output?.text || data?.body || JSON.stringify(data || {});
-      streamText(content);
-
-      // Refresh conversation list after first message
+      streamText(data?.output?.text || '');
       loadConversations();
     } catch (err) {
-      setMessages((prev) => [...prev, {
-        role: 'assistant',
-        content: `${t('chat.error')} (${err.message})`,
-      }]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: `${t('chat.error')} (${err.message})` }]);
     } finally {
       setIsLoading(false);
     }
