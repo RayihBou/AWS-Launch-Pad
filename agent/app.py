@@ -67,14 +67,32 @@ def aws(svc):
 # --- boto3 tools as @tool decorators ---
 @tool
 def fetch_aws_pricing_page(url: str) -> str:
-    """Fetch an AWS pricing page and return its text content. Use for Bedrock pricing (https://aws.amazon.com/bedrock/pricing/) or AgentCore pricing (https://aws.amazon.com/bedrock/agentcore/pricing/) when the Pricing API has no data."""
-    import urllib.request, re
+    """Fetch an AWS pricing page and return its text content with resolved prices. Use for Bedrock pricing or any AWS service pricing when the Pricing API has no data."""
+    import urllib.request, re, json, gzip
     if not url.startswith('https://aws.amazon.com/'):
         return 'Error: Only aws.amazon.com URLs allowed'
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
     html = urllib.request.urlopen(req, timeout=15).read().decode()
+    # Resolve {priceOf!...} placeholders using AWS pricing JSON
+    hashes = set(re.findall(r'priceOf!bedrockfoundationmodels/bedrockfoundationmodels!([^}!]+)', html))
+    prices = {}
+    if hashes:
+        try:
+            purl = 'https://b0.p.awsstatic.com/pricing/2.0/meteredUnitMaps/bedrockfoundationmodels/USD/current/bedrockfoundationmodels.json'
+            preq = urllib.request.Request(purl, headers={'User-Agent': 'Mozilla/5.0', 'Accept-Encoding': 'gzip'})
+            pdata = json.loads(gzip.decompress(urllib.request.urlopen(preq, timeout=10).read()).decode())
+            for region in pdata.get('regions', {}).values():
+                for h in hashes:
+                    if h in region:
+                        prices[h] = region[h]['price'].rstrip('0').rstrip('.')
+                if prices:
+                    break
+        except: pass
+    for h, p in prices.items():
+        html = html.replace('{priceOf!bedrockfoundationmodels/bedrockfoundationmodels!' + h + '}', '$' + p)
     text = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL)
     text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL)
+    text = re.sub(r'\{priceOf![^}]+\}', 'N/A', text)
     text = re.sub(r'<[^>]+>', ' ', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text[:30000]
