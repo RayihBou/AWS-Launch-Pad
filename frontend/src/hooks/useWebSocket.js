@@ -48,6 +48,7 @@ export default function useChat() {
 
   // WebSocket connection
   const reconnectTimer = useRef(null);
+  const wasConnected = useRef(false);
   const connectWs = useCallback(async () => {
     const auth = await getAuthInfo();
     if (!auth || !config.wsEndpoint) return;
@@ -55,14 +56,17 @@ export default function useChat() {
 
     try {
       const ws = new WebSocket(`${config.wsEndpoint}?token=${auth.token}`);
-      ws.onopen = () => setIsConnected(true);
+      ws.onopen = () => { setIsConnected(true); wasConnected.current = true; };
       ws.onclose = () => {
         setIsConnected(false);
         wsRef.current = null;
-        if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-        reconnectTimer.current = setTimeout(() => connectWs(), 5000);
+        // Only reconnect if we were previously connected (not on initial failure)
+        if (wasConnected.current) {
+          if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+          reconnectTimer.current = setTimeout(() => connectWs(), 5000);
+        }
       };
-      ws.onerror = () => {}; // onclose will handle it
+      ws.onerror = () => {};
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);

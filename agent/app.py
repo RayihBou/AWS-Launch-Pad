@@ -185,7 +185,10 @@ def get_cost_summary(days: int = 30, service_filter: str = '') -> dict:
             amt = float(g['Metrics']['UnblendedCost']['Amount'])
             usage = float(g['Metrics']['UsageQuantity']['Amount'])
             if amt > 0.001:
-                items.append({'name': g['Keys'][0], 'cost': round(amt, 4), 'usage': round(usage, 2)})
+                name = g['Keys'][0]
+                # Clean usage type names for readability
+                name = name.replace('USE1-', '').replace('USW2-', '').replace('EUW1-', '').replace('APN1-', '')
+                items.append({'name': name, 'cost': round(amt, 4), 'usage_quantity': round(usage, 2)})
     items.sort(key=lambda x: x['cost'], reverse=True)
     return {'items': items[:25], 'total': round(sum(i['cost'] for i in items), 2), 'period': f'{start} to {end}', 'filter': service_filter or 'all services'}
 
