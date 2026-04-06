@@ -24,6 +24,10 @@ GATEWAY_URL = os.environ.get('GATEWAY_ENDPOINT', '')
 MEMORY_ID = os.environ.get('MEMORY_ID', '')
 LANG_NAMES = {'en': 'English', 'es': 'Spanish', 'pt': 'Portuguese'}
 
+import re
+def strip_emojis(text):
+    return re.sub(r'[\U0001F000-\U0001FFFF\u2600-\u27BF\u2B50\u2705\u274C\u26A0\u2714\u2716\u25AA-\u25FE\u2B06-\u2B07\u2934-\u2935\u23E9-\u23FA\u200D\uFE0F]+', '', text)
+
 SYSTEM = f"""You are AWS LaunchPad, an AI cloud operations assistant.
 
 PERSONALITY:
@@ -271,7 +275,7 @@ class Handler(BaseHTTPRequestHandler):
         attachment = body.get('attachment')
         actor_id = body.get('actor_id', 'anonymous')
 
-        out = process_request(text, history, role, token, attachment, actor_id)
+        out = strip_emojis(process_request(text, history, role, token, attachment, actor_id))
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
