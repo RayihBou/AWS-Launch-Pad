@@ -372,7 +372,8 @@
                 <li>Bedrock AgentCore Memory - Memoria a corto plazo (eventos de sesion) y largo plazo (hechos y preferencias)</li>
                 <li>Bedrock AgentCore Identity - Gestion de identidad (sin costo adicional via Runtime/Gateway)</li>
                 <li>AWS Lambda - Proxy (1 funcion) + MCP handlers (4 funciones)</li>
-                <li>Amazon API Gateway HTTP API - Punto de entrada con autorizador JWT de Cognito</li>
+                <li>Amazon API Gateway WebSocket - Chat en tiempo real (sin limite de timeout, Lambda Authorizer)</li>
+                <li>Amazon API Gateway HTTP API - REST operations (conversations, history, rename, delete)</li>
                 <li>Amazon DynamoDB - Historial de conversaciones multi-usuario (on-demand)</li>
                 <li>Amazon CloudFront - CDN para frontend React</li>
                 <li>Amazon S3 - Hosting de archivos estaticos del frontend</li>

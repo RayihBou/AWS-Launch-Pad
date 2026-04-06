@@ -20,18 +20,17 @@ AWS LaunchPad provides a web-based chatbot that customers and partners can deplo
 ```mermaid
 graph LR
     A[Browser] --> B[CloudFront]
-    B --> C[AgentCore<br/>Runtime]
-    C --> D[Strands<br/>Agents SDK]
-    D --> E[Claude Sonnet 4.6<br/>Bedrock]
-    D --> F[AgentCore<br/>Gateway]
-    F --> G[AWS Knowledge<br/>MCP Server]
-    F --> H[AWS Pricing<br/>MCP Server]
-    F --> I[WA Security<br/>MCP Server]
-    F --> J[CloudWatch<br/>MCP Server]
-    F --> N[CloudTrail<br/>MCP Server]
-    C --> K[AgentCore<br/>Memory]
-    C --> L[AgentCore<br/>Policy]
-    C --> M[AgentCore<br/>Identity]
+    B --> C1[WebSocket API GW<br/>Chat - No timeout]
+    B --> C2[HTTP API GW<br/>REST - History]
+    C1 --> D[Lambda WS Handler]
+    C2 --> D2[Lambda Proxy]
+    D --> E[AgentCore Runtime<br/>Strands SDK]
+    D2 --> DB[(DynamoDB v2)]
+    E --> F[Claude Sonnet 4.6<br/>Bedrock]
+    E --> G[AgentCore Gateway]
+    G --> H[5 MCP Servers]
+    E --> I[AgentCore Memory]
+    EB[EventBridge 5min] --> W[Lambda Warmup] --> E
 ```
 
 ## Tech Stack
@@ -39,15 +38,16 @@ graph LR
 | Component | Service |
 |-----------|--------|
 | Frontend | React + S3 + CloudFront |
-| Agent Runtime | Amazon Bedrock AgentCore Runtime |
+| Agent Runtime | Amazon Bedrock AgentCore Runtime (Docker arm64) |
 | Agent Framework | Strands Agents SDK |
 | Model | Claude Sonnet 4.6 (configurable) |
-| Tools | AgentCore Gateway + MCP Servers |
-| Auth | AgentCore Identity + Amazon Cognito |
-| Security | AgentCore Policy (Cedar) + Bedrock Guardrails |
-| Memory | AgentCore Memory (short-term + long-term) |
+| Tools | AgentCore Gateway + 5 MCP Servers + 8 boto3 tools |
+| Chat API | WebSocket API Gateway (no timeout limit) |
+| REST API | HTTP API Gateway (Cognito JWT auth) |
+| Auth | Amazon Cognito (MFA TOTP mandatory) |
+| Memory | AgentCore Memory (short-term + long-term) + DynamoDB v2 |
+| Warmup | EventBridge (5 min) + Lambda ping |
 | Observability | AgentCore Observability (CloudWatch) |
-| IaC | AWS CDK (TypeScript) |
 
 ## Security
 
