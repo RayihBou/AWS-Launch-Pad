@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base target="_blank">
+    <title>AWS LaunchPad - Estimacion de Costos</title>
+    <link rel="icon" href="https://a0.awsstatic.com/libra-css/images/site/fav/favicon.ico">
+    <style>
+        :root {
+            --color-background-primary: #0f1419;
+            --color-background-secondary: #1a1f26;
+            --color-background-tertiary: #242b33;
+            --color-text-primary: #ffffff;
+            --color-text-secondary: #b0b8c1;
+            --color-aws-orange: #ff9900;
+            --color-border: #3d4852;
+        }
+        html, body {
+            background: var(--color-background-primary);
+            margin: 0; padding: 0;
+            font-family: 'Amazon Ember', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: var(--color-text-primary);
+        }
+        .header {
+            background: linear-gradient(135deg, #232f3e, #1a252f);
+            padding: 20px 40px;
+            display: flex; align-items: center; gap: 16px;
+            border-bottom: 3px solid var(--color-aws-orange);
+        }
+        .header img { height: 35px; }
+        .header h1 { font-size: 1.4rem; margin: 0; }
+        .header p { color: var(--color-text-secondary); font-size: 0.85rem; margin: 4px 0 0; }
+        .container { max-width: 95%; margin: 0 auto; padding: 30px 40px; }
+        .section-title {
+            font-size: 1.2rem; font-weight: 700; margin: 30px 0 16px;
+            padding-bottom: 8px; border-bottom: 2px solid var(--color-aws-orange);
+        }
+        .summary-cards {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 16px; margin-bottom: 30px;
+        }
+        .summary-card {
+            background: var(--color-background-secondary);
+            border: 1px solid var(--color-border); border-radius: 8px;
+            padding: 20px; text-align: center;
+        }
+        .summary-card .label { color: var(--color-text-secondary); font-size: 0.8rem; margin-bottom: 8px; }
+        .summary-card .value { font-size: 1.8rem; font-weight: 700; color: var(--color-aws-orange); }
+        .summary-card .detail { color: var(--color-text-secondary); font-size: 0.75rem; margin-top: 6px; }
+        .info-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 12px; margin-bottom: 20px;
+        }
+        .info-card {
+            background: var(--color-background-secondary);
+            border: 1px solid var(--color-border); border-radius: 8px; padding: 14px;
+        }
+        .info-card .label { color: var(--color-text-secondary); font-size: 0.75rem; margin-bottom: 4px; }
+        .info-card .value { font-size: 0.9rem; }
+        table {
+            width: 100%; border-collapse: collapse; margin: 16px 0;
+            background: var(--color-background-secondary); border-radius: 8px; overflow: hidden;
+        }
+        th {
+            background: var(--color-background-tertiary); padding: 12px 14px;
+            text-align: left; font-size: 0.8rem; color: var(--color-text-secondary);
+            border-bottom: 1px solid var(--color-border); position: sticky; top: 0;
+        }
+        td {
+            padding: 10px 14px; font-size: 0.85rem;
+            border-bottom: 1px solid var(--color-border);
+        }
+        tr:last-child td { border-bottom: none; }
+        tr.total-row { background: var(--color-background-tertiary); font-weight: 700; }
+        tr.total-row td { color: var(--color-aws-orange); font-size: 0.95rem; }
+        tr.category-row td { color: var(--color-text-secondary); font-weight: 600; font-size: 0.8rem; }
+        .text-block {
+            background: var(--color-background-secondary);
+            border: 1px solid var(--color-border); border-radius: 8px;
+            padding: 16px; margin: 12px 0; font-size: 0.85rem; line-height: 1.6;
+        }
+        .text-block ul { margin: 8px 0; padding-left: 20px; }
+        .text-block li { margin: 4px 0; }
+        .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+        .tag-dominant { background: #4d1a1a; color: #FF6B6B; }
+        .tag-low { background: #1a4d1a; color: #90EE90; }
+        .tag-negligible { background: var(--color-background-tertiary); color: var(--color-text-secondary); }
+        .bar-container { display: flex; height: 28px; border-radius: 4px; overflow: hidden; margin: 8px 0; }
+        .bar-segment { display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 600; color: #0f1419; min-width: 2px; }
+        .note { color: var(--color-text-secondary); font-size: 0.8rem; font-style: italic; margin: 8px 0; }
+        a { color: var(--color-aws-orange); }
+        a:hover { text-decoration: underline; }
+        .footer {
+            text-align: center; padding: 20px; margin-top: 40px;
+            border-top: 1px solid var(--color-border);
+            color: var(--color-text-secondary); font-size: 0.75rem;
+        }
+        @media (max-width: 768px) {
+            .container { padding: 16px; }
+            .summary-cards { grid-template-columns: 1fr 1fr; }
+            table { font-size: 0.75rem; }
+            th, td { padding: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="https://a0.awsstatic.com/libra-css/images/logos/aws_smile-header-desktop-en-white_59x35.png" alt="AWS Logo">
+        <div>
+            <h1>AWS LaunchPad - Estimacion de Costos</h1>
+            <p>Desglose detallado por servicio y nivel de uso | Region: us-east-1 | Sin considerar Free Tier</p>
+        </div>
+    </div>
+
+    <div class="container">
+
+        <div class="section-title">Resumen de Costos Mensuales</div>
+        <div class="summary-cards">
+            <div class="summary-card">
+                <div class="label">Uso Bajo</div>
+                <div class="value">$13.37</div>
+                <div class="detail">5 usuarios / 1,000 mensajes</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Uso Medio</div>
+                <div class="value">$53.29</div>
+                <div class="detail">20 usuarios / 4,000 mensajes</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Uso Alto</div>
+                <div class="value">$133.07</div>
+                <div class="detail">50 usuarios / 10,000 mensajes</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">Costo Dominante</div>
+                <div class="value">~90%</div>
+                <div class="detail">Bedrock (Claude Sonnet 4)</div>
+            </div>
+        </div>
+
+        <div class="section-title">Distribucion de Costos (Uso Medio - $53.29/mes)</div>
+        <div class="bar-container">
+            <div class="bar-segment" style="width:90.1%;background:var(--color-aws-orange)">Bedrock Tokens 90.1%</div>
+            <div class="bar-segment" style="width:6.9%;background:#3fb950">AgentCore</div>
+            <div class="bar-segment" style="width:1.5%;background:#58a6ff">Lambda</div>
+            <div class="bar-segment" style="width:1.5%;background:#bc8cff">Otros</div>
+        </div>
+        <p class="note">Los tokens de Bedrock (Claude Sonnet 4) representan la gran mayoria del costo. Todos los demas servicios son marginales en estos volumenes.</p>
+
+        <div class="section-title">Supuestos del Modelo de Costos</div>
+        <div class="info-grid">
+            <div class="info-card">
+                <div class="label">Tokens por Mensaje (Input)</div>
+                <div class="value">~1,500 tokens (system prompt + historial 20 msgs + mensaje del usuario)</div>
+            </div>
+            <div class="info-card">
+                <div class="label">Tokens por Mensaje (Output)</div>
+                <div class="value">~500 tokens (respuesta del agente)</div>
+            </div>
+            <div class="info-card">
+                <div class="label">Tool Calls MCP por Mensaje</div>
+                <div class="value">1.5 promedio (knowledge, pricing, security, cloudwatch, cloudtrail)</div>
+            </div>
+            <div class="info-card">
+                <div class="label">AgentCore Runtime por Mensaje</div>
+                <div class="value">~5s CPU activo (0.5 vCPU), ~15s total sesion (512 MB memoria)</div>
+            </div>
+            <div class="info-card">
+                <div class="label">Lambda Proxy</div>
+                <div class="value">~5 segundos por invocacion, 256 MB</div>
+            </div>
+            <div class="info-card">
+                <div class="label">MCP Lambdas (4 funciones)</div>
+                <div class="value">~3 segundos por invocacion, 256 MB, 1.5 calls/msg</div>
+            </div>
+            <div class="info-card">
+                <div class="label">DynamoDB por Mensaje</div>
+                <div class="value">2 reads (load history + list) + 1 write (save)</div>
+            </div>
+            <div class="info-card">
+                <div class="label">AgentCore Memory por Mensaje</div>
+                <div class="value">1 evento short-term + 1 retrieval long-term. ~100 records LT/usuario/mes</div>
+            </div>
+        </div>
+
+        <div class="section-title">Precios Unitarios por Servicio</div>
+        <table>
+            <thead>
+                <tr><th>Servicio</th><th>Metrica</th><th>Precio Unitario</th><th>Fuente</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Bedrock Claude Sonnet 4</td><td>Input tokens</td><td>$3.00 / 1M tokens</td><td>AWS Pricing API</td></tr>
+                <tr><td>Bedrock Claude Sonnet 4</td><td>Output tokens</td><td>$15.00 / 1M tokens</td><td>AWS Pricing API</td></tr>
+                <tr><td>AgentCore Runtime</td><td>CPU</td><td>$0.0895 / vCPU-hora</td><td><a href="https://aws.amazon.com/es/bedrock/agentcore/pricing/">Pagina oficial</a></td></tr>
+                <tr><td>AgentCore Runtime</td><td>Memory</td><td>$0.00945 / GB-hora</td><td><a href="https://aws.amazon.com/es/bedrock/agentcore/pricing/">Pagina oficial</a></td></tr>
+                <tr><td>AgentCore Gateway</td><td>API Invocations (ListTools, InvokeTool, Ping)</td><td>$0.005 / 1,000 invocaciones</td><td><a href="https://aws.amazon.com/es/bedrock/agentcore/pricing/">Pagina oficial</a></td></tr>
+                <tr><td>AgentCore Memory</td><td>Short-term (eventos nuevos)</td><td>$0.25 / 1,000 eventos</td><td><a href="https://aws.amazon.com/es/bedrock/agentcore/pricing/">Pagina oficial</a></td></tr>
+                <tr><td>AgentCore Memory</td><td>Long-term storage (estrategia integrada)</td><td>$0.75 / 1,000 registros almacenados/mes</td><td><a href="https://aws.amazon.com/es/bedrock/agentcore/pricing/">Pagina oficial</a></td></tr>
+                <tr><td>AgentCore Memory</td><td>Long-term retrieval</td><td>$0.50 / 1,000 recuperaciones</td><td><a href="https://aws.amazon.com/es/bedrock/agentcore/pricing/">Pagina oficial</a></td></tr>
+                <tr><td>AgentCore Identity</td><td>Via Runtime/Gateway</td><td>Sin costo adicional</td><td><a href="https://aws.amazon.com/es/bedrock/agentcore/pricing/">Pagina oficial</a></td></tr>
+                <tr><td>Lambda</td><td>Requests</td><td>$0.20 / 1M requests</td><td>AWS Pricing API</td></tr>
+                <tr><td>Lambda</td><td>Compute (GB-second)</td><td>$0.0000166667</td><td>AWS Pricing API</td></tr>
+                <tr><td>API Gateway HTTP API</td><td>Requests</td><td>$1.00 / 1M requests</td><td>AWS Pricing API</td></tr>
+                <tr><td>DynamoDB On-Demand</td><td>Write Request Units</td><td>$1.25 / 1M WRU</td><td>AWS Pricing API</td></tr>
+                <tr><td>DynamoDB On-Demand</td><td>Read Request Units</td><td>$0.25 / 1M RRU</td><td>AWS Pricing API</td></tr>
+                <tr><td>CloudFront</td><td>HTTPS Requests</td><td>$0.0075 / 10K requests</td><td>AWS Pricing API</td></tr>
+                <tr><td>CloudFront</td><td>Data Transfer Out</td><td>$0.085 / GB</td><td>AWS Pricing API</td></tr>
+                <tr><td>S3 Standard</td><td>Storage</td><td>$0.023 / GB-month</td><td>AWS Pricing API</td></tr>
+                <tr><td>ECR</td><td>Storage</td><td>$0.10 / GB-month</td><td>AWS Pricing API</td></tr>
+                <tr><td>Cognito</td><td>MAU</td><td>$0.0055 / MAU</td><td>Documentacion publica</td></tr>
+            </tbody>
+        </table>
+
+        <div class="section-title">Desglose Detallado por Servicio y Nivel de Uso</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Servicio</th>
+                    <th>Componente</th>
+                    <th>Bajo (5 users, 1K msgs)</th>
+                    <th>Medio (20 users, 4K msgs)</th>
+                    <th>Alto (50 users, 10K msgs)</th>
+                    <th>Impacto</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="category-row"><td colspan="6">Amazon Bedrock (Claude Sonnet 4)</td></tr>
+                <tr>
+                    <td>Bedrock</td><td>Input tokens (1.5K/msg)</td>
+                    <td>1.5M tok = $4.50</td><td>6M tok = $18.00</td><td>15M tok = $45.00</td>
+                    <td><span class="tag tag-dominant">Dominante</span></td>
+                </tr>
+                <tr>
+                    <td>Bedrock</td><td>Output tokens (500/msg)</td>
+                    <td>500K tok = $7.50</td><td>2M tok = $30.00</td><td>5M tok = $75.00</td>
+                    <td><span class="tag tag-dominant">Dominante</span></td>
+                </tr>
+
+                <tr class="category-row"><td colspan="6">Amazon Bedrock AgentCore</td></tr>
+                <tr>
+                    <td>AgentCore Runtime</td><td>CPU (5s activo x 0.5 vCPU/msg)</td>
+                    <td>$0.062</td><td>$0.249</td><td>$0.622</td>
+                    <td><span class="tag tag-negligible">Negligible</span></td>
+                </tr>
+                <tr>
+                    <td>AgentCore Runtime</td><td>Memory (15s x 512MB/msg)</td>
+                    <td>$0.020</td><td>$0.079</td><td>$0.197</td>
+                    <td><span class="tag tag-negligible">Negligible</span></td>
+                </tr>
+                <tr>
+                    <td>AgentCore Gateway</td><td>Invocaciones (2.5/msg)</td>
+                    <td>$0.013</td><td>$0.050</td><td>$0.125</td>
+                    <td><span class="tag tag-negligible">Negligible</span></td>
+                </tr>
+                <tr>
+                    <td>AgentCore Memory</td><td>Short-term events (1/msg)</td>
+                    <td>$0.250</td><td>$1.000</td><td>$2.500</td>
+                    <td><span class="tag tag-low">Bajo</span></td>
+                </tr>
+                <tr>
+                    <td>AgentCore Memory</td><td>Long-term retrieval (1/msg)</td>
+                    <td>$0.500</td><td>$2.000</td><td>$5.000</td>
+                    <td><span class="tag tag-low">Bajo</span></td>
+                </tr>
+                <tr>
+                    <td>AgentCore Memory</td><td>Long-term storage (~100 records/user/mes)</td>
+                    <td>$0.375</td><td>$1.500</td><td>$3.750</td>
+                    <td><span class="tag tag-low">Bajo</span></td>
+                </tr>
+
+                <tr class="category-row"><td colspan="6">AWS Lambda (Proxy + 4 MCP Handlers)</td></tr>
+                <tr>
+                    <td>Lambda Proxy</td><td>Requests + Compute (5s x 256MB)</td>
+                    <td>$0.022</td><td>$0.086</td><td>$0.215</td>
+                    <td><span class="tag tag-negligible">Negligible</span></td>
+                </tr>
+                <tr>
+                    <td>MCP Lambdas (x4)</td><td>Requests + Compute (3s x 256MB x 1.5/msg)</td>
+                    <td>$0.019</td><td>$0.078</td><td>$0.195</td>
+                    <td><span class="tag tag-negligible">Negligible</span></td>
+                </tr>
+
+                <tr class="category-row"><td colspan="6">Otros Servicios AWS</td></tr>
+                <tr>
+                    <td>API Gateway HTTP</td><td>Requests</td>
+                    <td>$0.001</td><td>$0.004</td><td>$0.010</td>
+                    <td><span class="tag tag-negligible">Negligible</span></td>
+                </tr>
+                <tr>
+                    <td>DynamoDB</td><td>Reads + Writes (on-demand)</td>
+                    <td>$0.002</td><td>$0.007</td><td>$0.018</td>
+                    <td><span class="tag tag-negligible">Negligible</span></td>
+                </tr>
+                <tr>
+                    <td>CloudFront</td><td>Requests + Data Transfer</td>
+                    <td>$0.025</td><td>$0.080</td><td>$0.125</td>
+                    <td><span class="tag tag-negligible">Negligible</span></td>
+                </tr>
+                <tr>
+                    <td>S3</td><td>Frontend storage (~5 MB)</td>
+                    <td>$0.0001</td><td>$0.0001</td><td>$0.0001</td>
+                    <td><span class="tag tag-negligible">Negligible</span></td>
+                </tr>
+                <tr>
+                    <td>ECR</td><td>Container image (~500 MB)</td>
+                    <td>$0.050</td><td>$0.050</td><td>$0.050</td>
+                    <td><span class="tag tag-negligible">Negligible</span></td>
+                </tr>
+                <tr>
+                    <td>Cognito</td><td>MAU ($0.0055/MAU)</td>
+                    <td>$0.028</td><td>$0.110</td><td>$0.275</td>
+                    <td><span class="tag tag-negligible">Negligible</span></td>
+                </tr>
+
+                <tr class="total-row">
+                    <td colspan="2">Total Estimado Mensual</td>
+                    <td>$13.37</td>
+                    <td>$53.29</td>
+                    <td>$133.07</td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="section-title">Analisis de Costos</div>
+        <div class="text-block">
+            <ul>
+                <li>Los tokens de Bedrock (Claude Sonnet 4) representan aproximadamente el 90% del costo total. Los output tokens ($15/1M) son 5x mas caros que los input tokens ($3/1M).</li>
+                <li>AgentCore Memory es el segundo componente de costo (~9%), principalmente por las operaciones de retrieval ($0.50/1K) y almacenamiento long-term ($0.75/1K records).</li>
+                <li>AgentCore Runtime cobra solo por CPU activo (I/O wait es gratis), lo que reduce significativamente el costo vs. compute tradicional.</li>
+                <li>Lambda, API Gateway, DynamoDB, CloudFront, S3, ECR y Cognito combinados representan menos del 1% del costo total.</li>
+                <li>El costo escala linealmente con el numero de mensajes. Duplicar mensajes duplica el costo de Bedrock y AgentCore.</li>
+                <li>AgentCore Identity no tiene costo adicional cuando se usa a traves de Runtime o Gateway.</li>
+            </ul>
+        </div>
+
+        <div class="section-title">Recomendaciones de Optimizacion</div>
+        <div class="info-grid">
+            <div class="info-card">
+                <div class="label">Modelo Alternativo</div>
+                <div class="value">Usar Claude Haiku para consultas simples (~10x mas barato). Routing inteligente: Haiku para FAQ, Sonnet para analisis complejos.</div>
+            </div>
+            <div class="info-card">
+                <div class="label">Reducir Tokens de Input</div>
+                <div class="value">Limitar historial enviado al agente (actualmente 20 msgs). Comprimir/resumir historial largo. Optimizar system prompt.</div>
+            </div>
+            <div class="info-card">
+                <div class="label">Batch Inference</div>
+                <div class="value">Para reportes programados o analisis no interactivos, usar Bedrock Batch Inference (50% descuento en tokens).</div>
+            </div>
+            <div class="info-card">
+                <div class="label">Caching de Respuestas</div>
+                <div class="value">Implementar cache para consultas frecuentes (pricing, documentacion). Reducir invocaciones a Bedrock para preguntas repetidas.</div>
+            </div>
+            <div class="info-card">
+                <div class="label">Memory Long-Term</div>
+                <div class="value">Usar estrategia override ($0.25/1K) en vez de integrada ($0.75/1K) para reducir costos de almacenamiento a largo plazo.</div>
+            </div>
+            <div class="info-card">
+                <div class="label">Provisioned Throughput</div>
+                <div class="value">Para uso alto sostenido, considerar Bedrock Provisioned Throughput (20-40% ahorro vs. on-demand).</div>
+            </div>
+        </div>
+
+        <div class="section-title">Servicios de la Solucion</div>
+        <div class="text-block">
+            <ul>
+                <li>Amazon Bedrock (Claude Sonnet 4) - Modelo de lenguaje para el agente conversacional</li>
+                <li>Bedrock AgentCore Runtime - Ejecucion serverless del agente (Strands SDK, Docker arm64, facturacion por consumo activo)</li>
+                <li>Bedrock AgentCore Gateway - Conexion a 5 MCP servers (Knowledge, Pricing, WA Security, CloudWatch, CloudTrail)</li>
+                <li>Bedrock AgentCore Memory - Memoria a corto plazo (eventos de sesion) y largo plazo (hechos y preferencias)</li>
+                <li>Bedrock AgentCore Identity - Gestion de identidad (sin costo adicional via Runtime/Gateway)</li>
+                <li>AWS Lambda - Proxy (1 funcion) + MCP handlers (4 funciones)</li>
+                <li>Amazon API Gateway HTTP API - Punto de entrada con autorizador JWT de Cognito</li>
+                <li>Amazon DynamoDB - Historial de conversaciones multi-usuario (on-demand)</li>
+                <li>Amazon CloudFront - CDN para frontend React</li>
+                <li>Amazon S3 - Hosting de archivos estaticos del frontend</li>
+                <li>Amazon ECR - Registro de imagen Docker del agente</li>
+                <li>Amazon Cognito - Autenticacion con MFA TOTP obligatorio</li>
+            </ul>
+        </div>
+
+    </div>
+
+    <div class="footer">
+        <p>AWS LaunchPad | Estimacion de Costos | Generado: 2026-04-06 | SA: Rayih Bou</p>
+        <p>Precios consultados via AWS Pricing API y <a href="https://aws.amazon.com/es/bedrock/agentcore/pricing/">pagina oficial de AgentCore</a>. Documento interno AWS - Confidencial.</p>
+    </div>
+</body>
+</html>
