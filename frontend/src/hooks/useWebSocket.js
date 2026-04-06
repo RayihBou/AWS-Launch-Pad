@@ -78,6 +78,13 @@ export default function useChat() {
     }, 12);
   }, []);
 
+  const clearConversation = useCallback(async () => {
+    if (streamRef.current) clearInterval(streamRef.current);
+    setMessages([]);
+    messagesRef.current = [];
+    await clearHistory();
+  }, []);
+
   const sendMessage = useCallback(async (text, attachment = null) => {
     if ((!text.trim() && !attachment) || isLoading) return;
 
@@ -143,5 +150,14 @@ export default function useChat() {
     }
   }, [isLoading, streamText]);
 
-  return { messages, sendMessage, isConnected, isLoading, loadHistory };
+  return { messages, sendMessage, isConnected, isLoading, loadHistory, clearConversation };
+}
+
+async function clearHistory() {
+  try {
+    const auth = await getAuthInfo();
+    if (!auth) return;
+    const endpoint = config.agentEndpoint.replace('/chat', '/history');
+    await fetch(endpoint, { method: 'DELETE', headers: { 'Authorization': `Bearer ${auth.token}` } });
+  } catch (e) { /* ignore */ }
 }

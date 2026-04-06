@@ -1,14 +1,8 @@
-import { useEffect } from 'react';
-import useWebSocket from '../hooks/useWebSocket';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import './Chat.css';
 
-export default function Chat() {
-  const { messages, sendMessage, isConnected, isLoading, loadHistory } = useWebSocket();
-
-  useEffect(() => { loadHistory(); }, [loadHistory]);
-
+export default function Chat({ messages, sendMessage, isConnected, isLoading }) {
   return (
     <div className="chat">
       <MessageList messages={messages} isLoading={isLoading} />

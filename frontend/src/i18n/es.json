@@ -1,7 +1,9 @@
 {
   "header": {
     "title": "AWS LaunchPad",
-    "subtitle": "Asistente de Nube con IA"
+    "subtitle": "Asistente de Nube con IA",
+    "newConversation": "Nueva conversacion",
+    "export": "Exportar conversacion"
   },
   "chat": {
     "placeholder": "Consulta sobre tu entorno de AWS...",

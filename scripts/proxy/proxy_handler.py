@@ -50,6 +50,13 @@ def handler(event, context):
     if method == 'GET':
         return {'statusCode': 200, 'body': json.dumps({'messages': load_history(uid)})}
 
+    if method == 'DELETE':
+        try:
+            ddb.delete_item(Key={'userId': uid})
+        except Exception as e:
+            logger.error(f"Delete error: {e}")
+        return {'statusCode': 200, 'body': json.dumps({'ok': True})}
+
     try:
         body = event.get('body', '{}')
         if event.get('isBase64Encoded'):

@@ -92,6 +92,33 @@
 }
 .message--assistant .message__bubble a:hover { text-decoration: underline; }
 
+/* Copy button */
+.copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--color-background-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  border-radius: 4px;
+  padding: 4px 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+  display: flex;
+  align-items: center;
+}
+.message__bubble { position: relative; }
+.message--assistant .message__bubble:hover > .copy-btn { opacity: 1; }
+.copy-btn:hover { color: var(--color-aws-orange); border-color: var(--color-aws-orange); }
+.copy-btn--copied { color: #3fb950; border-color: #3fb950; opacity: 1; }
+
+/* Code block copy */
+.code-block-wrapper { position: relative; }
+.code-block-wrapper pre { margin: 8px 0; }
+.code-block-wrapper .copy-btn { opacity: 0; }
+.code-block-wrapper:hover .copy-btn { opacity: 1; }
+
 /* Typing dots animation */
 .typing-dots {
   display: inline-flex;
