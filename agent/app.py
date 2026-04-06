@@ -167,18 +167,26 @@ def list_lambda_functions() -> dict:
     return {'functions': [{'Name': f['FunctionName'], 'Runtime': f.get('Runtime', '-'), 'Memory': f['MemorySize'], 'Timeout': f['Timeout']} for f in r['Functions']], 'count': len(r['Functions'])}
 
 @tool
-def get_cost_summary(days: int = 30) -> dict:
-    """Get AWS cost breakdown by service for the account. Returns total cost and per-service costs from AWS Cost Explorer. Use this for any question about AWS spending, billing, costs, or consumption."""
+def get_cost_summary(days: int = 30, service_filter: str = '') -> dict:
+    """Get AWS cost breakdown by service for the account. Returns total cost and per-service costs from AWS Cost Explorer. Use this for any question about AWS spending, billing, costs, or consumption. Set service_filter to a service name (e.g. 'QuickSight', 'Lambda', 'Bedrock') to get detailed usage-type breakdown for that service."""
     end = datetime.utcnow().date()
     start = end - timedelta(days=days)
-    r = aws('ce').get_cost_and_usage(TimePeriod={'Start': str(start), 'End': str(end)}, Granularity='MONTHLY', Metrics=['UnblendedCost'], GroupBy=[{'Type': 'DIMENSION', 'Key': 'SERVICE'}])
-    services = []
+    params = {'TimePeriod': {'Start': str(start), 'End': str(end)}, 'Granularity': 'MONTHLY', 'Metrics': ['UnblendedCost', 'UsageQuantity']}
+    if service_filter:
+        params['Filter'] = {'Dimensions': {'Key': 'SERVICE', 'Values': [service_filter]}}
+        params['GroupBy'] = [{'Type': 'DIMENSION', 'Key': 'USAGE_TYPE'}]
+    else:
+        params['GroupBy'] = [{'Type': 'DIMENSION', 'Key': 'SERVICE'}]
+    r = aws('ce').get_cost_and_usage(**params)
+    items = []
     for group in r.get('ResultsByTime', []):
         for g in group.get('Groups', []):
             amt = float(g['Metrics']['UnblendedCost']['Amount'])
-            if amt > 0.01: services.append({'Service': g['Keys'][0], 'Cost': round(amt, 2)})
-    services.sort(key=lambda x: x['Cost'], reverse=True)
-    return {'services': services[:20], 'total': round(sum(s['Cost'] for s in services), 2), 'period': f'{start} to {end}'}
+            usage = float(g['Metrics']['UsageQuantity']['Amount'])
+            if amt > 0.001:
+                items.append({'name': g['Keys'][0], 'cost': round(amt, 4), 'usage': round(usage, 2)})
+    items.sort(key=lambda x: x['cost'], reverse=True)
+    return {'items': items[:25], 'total': round(sum(i['cost'] for i in items), 2), 'period': f'{start} to {end}', 'filter': service_filter or 'all services'}
 
 BOTO3_TOOLS = [list_s3_buckets, list_s3_objects, describe_ec2_instances, describe_cloudwatch_alarms, get_cloudwatch_metrics, lookup_cloudtrail_events, list_lambda_functions, get_cost_summary]
 
