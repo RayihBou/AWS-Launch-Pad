@@ -211,19 +211,32 @@ def process_request(text, history=None, role='Viewer', token=None, attachment=No
         # If attachment, use Bedrock Converse API directly
         if attachment:
             import base64 as b64
+            import re
             content_blocks = [{'text': prompt}]
             mime = attachment.get('type', 'image/jpeg')
             data = b64.b64decode(attachment['base64'])
+            raw_name = attachment.get('name', 'document')
+            name = re.sub(r'[^a-zA-Z0-9\s\-\(\)\[\]]', '', raw_name.rsplit('.', 1)[0])
+            name = re.sub(r'\s+', ' ', name).strip() or 'document'
 
             if mime.startswith('image/'):
                 fmt = mime.split('/')[-1]
                 if fmt == 'jpg': fmt = 'jpeg'
                 content_blocks.append({'image': {'format': fmt, 'source': {'bytes': data}}})
-            elif mime == 'application/pdf':
-                import re
-                name = re.sub(r'[^a-zA-Z0-9\s\-\(\)\[\]]', '', attachment.get('name', 'document').rsplit('.', 1)[0])
-                name = re.sub(r'\s+', ' ', name).strip() or 'document'
-                content_blocks.append({'document': {'format': 'pdf', 'name': name, 'source': {'bytes': data}}})
+            else:
+                # Map MIME to Converse API document format
+                ext = raw_name.rsplit('.', 1)[-1].lower() if '.' in raw_name else ''
+                fmt_map = {
+                    'application/pdf': 'pdf', 'text/csv': 'csv', 'text/plain': 'txt',
+                    'text/html': 'html', 'text/markdown': 'md', 'application/json': 'txt',
+                    'application/msword': 'doc',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+                    'application/vnd.ms-excel': 'xls',
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+                }
+                ext_map = {'yaml': 'txt', 'yml': 'txt', 'md': 'md', 'csv': 'csv', 'json': 'txt', 'txt': 'txt', 'html': 'html', 'xls': 'xls', 'xlsx': 'xlsx', 'doc': 'doc', 'docx': 'docx', 'pdf': 'pdf'}
+                doc_fmt = fmt_map.get(mime) or ext_map.get(ext, 'txt')
+                content_blocks.append({'document': {'format': doc_fmt, 'name': name, 'source': {'bytes': data}}})
 
             r = aws('bedrock-runtime').converse(
                 modelId=MODEL_ID,

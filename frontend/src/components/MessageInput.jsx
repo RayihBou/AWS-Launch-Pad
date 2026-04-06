@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { t } from '../i18n';
 import './MessageInput.css';
 
-const ACCEPTED = 'image/jpeg,image/png,image/gif,image/webp,application/pdf';
+const ACCEPTED = 'image/jpeg,image/png,image/gif,image/webp,application/pdf,text/csv,text/plain,text/html,text/markdown,application/json,.yaml,.yml,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
 export default function MessageInput({ onSend, disabled, isConnected }) {
