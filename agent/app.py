@@ -21,6 +21,7 @@ MODEL_ID = os.environ.get('MODEL_ID', 'us.anthropic.claude-sonnet-4-20250514-v1:
 LANGUAGE = os.environ.get('LANGUAGE', 'en')
 REGION = os.environ.get('AWS_REGION', 'us-east-1')
 GATEWAY_URL = os.environ.get('GATEWAY_ENDPOINT', '')
+MEMORY_ID = os.environ.get('MEMORY_ID', '')
 LANG_NAMES = {'en': 'English', 'es': 'Spanish', 'pt': 'Portuguese'}
 
 SYSTEM = f"""You are AWS LaunchPad, an AI cloud operations assistant.
@@ -126,6 +127,47 @@ def get_cost_summary(days: int = 30) -> dict:
 
 BOTO3_TOOLS = [list_s3_buckets, list_s3_objects, describe_ec2_instances, describe_cloudwatch_alarms, get_cloudwatch_metrics, lookup_cloudtrail_events, list_lambda_functions, get_cost_summary]
 
+# --- AgentCore Memory ---
+_memory_session = None
+
+def get_memory_session(actor_id):
+    """Get or create a memory session for the user."""
+    global _memory_session
+    if not MEMORY_ID:
+        return None
+    try:
+        from bedrock_agentcore.memory.session import MemorySessionManager
+        mgr = MemorySessionManager(memory_id=MEMORY_ID, region_name=REGION)
+        session = mgr.create_memory_session(actor_id=actor_id, session_id=f"chat_{actor_id}")
+        return session
+    except Exception as e:
+        logger.warning(f"Memory session error: {e}")
+        return None
+
+def search_memories(session, query):
+    """Search long-term memories for relevant context."""
+    if not session:
+        return ""
+    try:
+        records = session.search_long_term_memories(query=query, namespace_prefix="/", top_k=5)
+        if records:
+            facts = [str(r) for r in records]
+            return "Known facts about this user:\n" + "\n".join(facts[:5]) + "\n\n"
+    except Exception as e:
+        logger.warning(f"Memory search error: {e}")
+    return ""
+
+def save_to_memory(session, user_text, assistant_text):
+    """Save conversation turn to AgentCore Memory for long-term extraction."""
+    if not session:
+        return
+    try:
+        from bedrock_agentcore.memory.constants import ConversationalMessage, MessageRole
+        session.add_turns(messages=[ConversationalMessage(user_text, MessageRole.USER)])
+        session.add_turns(messages=[ConversationalMessage(assistant_text, MessageRole.ASSISTANT)])
+    except Exception as e:
+        logger.warning(f"Memory save error: {e}")
+
 def create_agent(token=None):
     """Create Strands Agent with MCP Gateway tools + boto3 tools."""
     model = BedrockModel(model_id=MODEL_ID, streaming=False)
@@ -144,11 +186,15 @@ def create_agent(token=None):
 
     return Agent(model=model, tools=all_tools, system_prompt=SYSTEM), None
 
-def process_request(text, history=None, role='Viewer', token=None, attachment=None):
+def process_request(text, history=None, role='Viewer', token=None, attachment=None, actor_id='anonymous'):
     """Process a chat request with conversation history."""
     agent, mcp = create_agent(token)
     try:
-        context = ""
+        # Search long-term memory for relevant context
+        mem_session = get_memory_session(actor_id)
+        memory_context = search_memories(mem_session, text)
+
+        context = memory_context
         if history:
             parts = []
             for h in history:
@@ -158,11 +204,11 @@ def process_request(text, history=None, role='Viewer', token=None, attachment=No
                     label = 'User' if r == 'user' else 'Assistant'
                     parts.append(f"{label}: {t}")
             if parts:
-                context = "Previous conversation:\n" + "\n".join(parts[-10:]) + "\n\n"
+                context += "Previous conversation:\n" + "\n".join(parts[-10:]) + "\n\n"
 
         prompt = f"{context}[User role: {role}]\nUser: {text}"
 
-        # If attachment, use Bedrock Converse API directly (Strands doesn't support multimodal yet)
+        # If attachment, use Bedrock Converse API directly
         if attachment:
             import base64 as b64
             content_blocks = [{'text': prompt}]
@@ -185,10 +231,13 @@ def process_request(text, history=None, role='Viewer', token=None, attachment=No
                 system=[{'text': SYSTEM}],
                 inferenceConfig={'maxTokens': 4096, 'temperature': 0.3},
             )
-            return r['output']['message']['content'][0]['text']
+            result = r['output']['message']['content'][0]['text']
+            save_to_memory(mem_session, text, result)
+            return result
 
-        result = agent(prompt)
-        return str(result)
+        result = str(agent(prompt))
+        save_to_memory(mem_session, text, result)
+        return result
     except Exception as e:
         logger.error(f"Agent error: {e}")
         return f"Error: {e}"
@@ -206,8 +255,9 @@ class Handler(BaseHTTPRequestHandler):
         role = body.get('role', 'Viewer')
         token = body.get('token', '')
         attachment = body.get('attachment')
+        actor_id = body.get('actor_id', 'anonymous')
 
-        out = process_request(text, history, role, token, attachment)
+        out = process_request(text, history, role, token, attachment, actor_id)
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()

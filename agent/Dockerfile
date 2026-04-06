@@ -6,7 +6,8 @@ RUN pip install --no-cache-dir \
     strands-agents \
     strands-agents-tools \
     boto3 \
-    mcp
+    mcp \
+    bedrock-agentcore
 
 COPY app.py .
 

@@ -12,7 +12,7 @@ agentcore = boto3.client('bedrock-agentcore', region_name='us-east-1')
 ddb = boto3.resource('dynamodb', region_name='us-east-1').Table('launchpad-conversations')
 RUNTIME_ARN = os.environ.get('RUNTIME_ARN', '')
 QUALIFIER = os.environ.get('QUALIFIER', 'default_endpoint')
-MAX_HISTORY = 20
+MAX_HISTORY = 50  # Increased from 20
 
 def decode_jwt(token):
     try:
@@ -56,7 +56,7 @@ def handler(event, context):
             body = base64.b64decode(body).decode()
         payload = json.loads(body) if isinstance(body, str) else body
         text = payload.get('input', {}).get('text', '')
-        attachment = payload.get('attachment')  # {base64, type, name}
+        attachment = payload.get('attachment')
 
         history = load_history(uid)
         history.append({'role': 'user', 'text': text})
@@ -64,8 +64,9 @@ def handler(event, context):
         agent_payload = {
             'input': {'text': text},
             'role': role,
-            'history': history[-MAX_HISTORY:],
+            'history': history[-20:],  # Send last 20 to agent for context
             'token': token,
+            'actor_id': uid,
         }
         if attachment:
             agent_payload['attachment'] = attachment
