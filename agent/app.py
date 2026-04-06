@@ -168,7 +168,7 @@ def list_lambda_functions() -> dict:
 
 @tool
 def get_cost_summary(days: int = 30) -> dict:
-    """Get cost summary for a date range."""
+    """Get AWS cost breakdown by service for the account. Returns total cost and per-service costs from AWS Cost Explorer. Use this for any question about AWS spending, billing, costs, or consumption."""
     end = datetime.utcnow().date()
     start = end - timedelta(days=days)
     r = aws('ce').get_cost_and_usage(TimePeriod={'Start': str(start), 'End': str(end)}, Granularity='MONTHLY', Metrics=['UnblendedCost'], GroupBy=[{'Type': 'DIMENSION', 'Key': 'SERVICE'}])
@@ -178,7 +178,7 @@ def get_cost_summary(days: int = 30) -> dict:
             amt = float(g['Metrics']['UnblendedCost']['Amount'])
             if amt > 0.01: services.append({'Service': g['Keys'][0], 'Cost': round(amt, 2)})
     services.sort(key=lambda x: x['Cost'], reverse=True)
-    return {'services': services[:15], 'total': round(sum(s['Cost'] for s in services), 2), 'period': f'{start} to {end}'}
+    return {'services': services[:20], 'total': round(sum(s['Cost'] for s in services), 2), 'period': f'{start} to {end}'}
 
 BOTO3_TOOLS = [list_s3_buckets, list_s3_objects, describe_ec2_instances, describe_cloudwatch_alarms, get_cloudwatch_metrics, lookup_cloudtrail_events, list_lambda_functions, get_cost_summary]
 
