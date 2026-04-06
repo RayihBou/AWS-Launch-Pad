@@ -63,6 +63,7 @@ export default function App() {
         activeId={chat.activeConversationId}
         onSelect={handleSelectConversation}
         onRename={chat.renameConversation}
+        onDelete={chat.deleteConversation}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(v => !v)}
       />

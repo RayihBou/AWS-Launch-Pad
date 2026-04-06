@@ -39,10 +39,16 @@ def load_history(uid, conv_id):
 
 def save_history(uid, conv_id, msgs, title=None):
     try:
-        item = {'userId': uid, 'conversationId': conv_id, 'messages': msgs[-MAX_HISTORY:], 'updatedAt': int(time.time())}
+        expr = 'SET messages = :m, updatedAt = :u'
+        vals = {':m': msgs[-MAX_HISTORY:], ':u': int(time.time())}
         if title:
-            item['title'] = title
-        ddb.put_item(Item=item)
+            expr += ', title = :t'
+            vals[':t'] = title
+        ddb.update_item(
+            Key={'userId': uid, 'conversationId': conv_id},
+            UpdateExpression=expr,
+            ExpressionAttributeValues=vals,
+        )
     except Exception as e:
         logger.error(f"Save error: {e}")
 

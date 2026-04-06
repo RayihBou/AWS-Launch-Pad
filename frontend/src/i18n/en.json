@@ -28,7 +28,8 @@
   },
   "sidebar": {
     "title": "Chat History",
-    "empty": "No conversations"
+    "empty": "No conversations",
+    "confirmDelete": "Delete this conversation?"
   },
   "login": {
     "title": "Sign In",

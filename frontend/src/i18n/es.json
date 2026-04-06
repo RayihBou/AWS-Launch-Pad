@@ -28,7 +28,8 @@
   },
   "sidebar": {
     "title": "Historial de Chats",
-    "empty": "Sin conversaciones"
+    "empty": "Sin conversaciones",
+    "confirmDelete": "Eliminar esta conversacion?"
   },
   "login": {
     "title": "Iniciar Sesion",

@@ -91,6 +91,18 @@ export default function useChat() {
     } catch (e) { /* ignore */ }
   }, []);
 
+  const deleteConversation = useCallback(async (convId) => {
+    try {
+      await apiCall(`/history?conversationId=${convId}`, 'DELETE');
+      setConversations(prev => prev.filter(c => c.conversationId !== convId));
+      if (conversationIdRef.current === convId) {
+        conversationIdRef.current = crypto.randomUUID();
+        setMessages([]);
+        messagesRef.current = [];
+      }
+    } catch (e) { /* ignore */ }
+  }, []);
+
   const streamText = useCallback((fullText) => {
     if (streamRef.current) clearInterval(streamRef.current);
     let i = 0;
@@ -186,6 +198,6 @@ export default function useChat() {
 
   return {
     messages, sendMessage, isConnected, isLoading, loadHistory, clearConversation,
-    conversations, loadConversation, renameConversation, activeConversationId: conversationIdRef.current,
+    conversations, loadConversation, renameConversation, deleteConversation, activeConversationId: conversationIdRef.current,
   };
 }

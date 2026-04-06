@@ -69,10 +69,12 @@
 }
 
 @media (max-width: 600px) {
-  .header { padding: 8px 12px; gap: 8px; }
+  .header { padding: 8px 12px 8px 42px; gap: 6px; }
   .header__logo { width: 40px; height: 24px; }
   .header__title { font-size: 0.9rem; }
   .header__subtitle { display: none; }
-  .header__email { font-size: 0.7rem; }
-  .header__logout { padding: 4px 10px; font-size: 0.7rem; }
+  .header__email { display: none; }
+  .header__user { gap: 8px; }
+  .header__logout { padding: 5px 7px; font-size: 0; border-radius: 6px; line-height: 0; }
+  .header__logout::after { content: ''; display: inline-block; width: 16px; height: 16px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ff9900' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4'/%3E%3Cpolyline points='16 17 21 12 16 7'/%3E%3Cline x1='21' y1='12' x2='9' y2='12'/%3E%3C/svg%3E") no-repeat center; }
 }

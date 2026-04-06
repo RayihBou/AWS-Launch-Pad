@@ -28,7 +28,8 @@
   },
   "sidebar": {
     "title": "Historico de Chats",
-    "empty": "Sem conversas"
+    "empty": "Sem conversas",
+    "confirmDelete": "Excluir esta conversa?"
   },
   "login": {
     "title": "Entrar",
