@@ -54,7 +54,12 @@ def list_conversations(uid):
             ProjectionExpression='conversationId, title, updatedAt',
             ScanIndexForward=False,
         )
-        return r.get('Items', [])
+        items = r.get('Items', [])
+        # Convert Decimal to int for JSON serialization
+        for item in items:
+            if 'updatedAt' in item:
+                item['updatedAt'] = int(item['updatedAt'])
+        return items
     except: return []
 
 def handler(event, context):
