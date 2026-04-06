@@ -11,7 +11,6 @@ function getAuthInfo() {
   });
   const user = pool.getCurrentUser();
   if (!user) return null;
-
   return new Promise((resolve) => {
     user.getSession((err, session) => {
       if (err || !session?.isValid()) { resolve(null); return; }
@@ -23,8 +22,20 @@ function getAuthInfo() {
   });
 }
 
+async function apiCall(path, method = 'GET', body = null) {
+  const auth = await getAuthInfo();
+  if (!auth) return null;
+  const headers = { 'Authorization': `Bearer ${auth.token}` };
+  if (body) headers['Content-Type'] = 'application/json';
+  const res = await fetch(config.agentEndpoint.replace('/chat', path), {
+    method, headers, body: body ? JSON.stringify(body) : undefined,
+  });
+  return { data: await res.json(), auth };
+}
+
 export default function useChat() {
   const [messages, setMessages] = useState([]);
+  const [conversations, setConversations] = useState([]);
   const [isConnected, setIsConnected] = useState(!!config.agentEndpoint);
   const [isLoading, setIsLoading] = useState(false);
   const streamRef = useRef(null);
@@ -32,45 +43,60 @@ export default function useChat() {
   const historyLoaded = useRef(false);
   const conversationIdRef = useRef(crypto.randomUUID());
 
+  const loadConversations = useCallback(async () => {
+    try {
+      const r = await apiCall('/conversations');
+      if (r?.data?.conversations) {
+        const sorted = r.data.conversations.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        setConversations(sorted);
+        return sorted;
+      }
+    } catch (e) { /* ignore */ }
+    return [];
+  }, []);
+
+  const loadConversation = useCallback(async (convId) => {
+    conversationIdRef.current = convId;
+    try {
+      const r = await apiCall(`/history?conversationId=${convId}`);
+      if (r?.data?.messages?.length) {
+        const restored = r.data.messages.map(m => ({ role: m.role, content: m.text }));
+        setMessages(restored);
+        messagesRef.current = restored;
+        return;
+      }
+    } catch (e) { /* ignore */ }
+    setMessages([]);
+    messagesRef.current = [];
+  }, []);
+
   const loadHistory = useCallback(async () => {
     if (historyLoaded.current || !config.agentEndpoint) return;
     historyLoaded.current = true;
-    try {
-      const auth = await getAuthInfo();
-      if (!auth) return;
-      // Load most recent conversation
-      const convsEndpoint = config.agentEndpoint.replace('/chat', '/conversations');
-      const convsRes = await fetch(convsEndpoint, { headers: { 'Authorization': `Bearer ${auth.token}` } });
-      const convsData = await convsRes.json();
-      if (convsData.conversations?.length) {
-        const latest = convsData.conversations[0];
-        conversationIdRef.current = latest.conversationId;
-        const endpoint = config.agentEndpoint.replace('/chat', '/history') + `?conversationId=${latest.conversationId}`;
-        const res = await fetch(endpoint, { headers: { 'Authorization': `Bearer ${auth.token}` } });
-        const data = await res.json();
-        if (data.messages?.length) {
-          const restored = data.messages.map(m => ({ role: m.role, content: m.text }));
-          setMessages(restored);
-          messagesRef.current = restored;
-        }
-      }
-    } catch (e) { /* ignore */ }
-  }, []);
+    const convs = await loadConversations();
+    if (convs.length) await loadConversation(convs[0].conversationId);
+  }, [loadConversations, loadConversation]);
 
-  const clearConversation = useCallback(async () => {
+  const clearConversation = useCallback(() => {
     if (streamRef.current) clearInterval(streamRef.current);
     conversationIdRef.current = crypto.randomUUID();
     setMessages([]);
     messagesRef.current = [];
   }, []);
 
+  const renameConversation = useCallback(async (convId, title) => {
+    try {
+      await apiCall(`/history?conversationId=${convId}`, 'PATCH', { title });
+      setConversations(prev => prev.map(c => c.conversationId === convId ? { ...c, title } : c));
+    } catch (e) { /* ignore */ }
+  }, []);
+
   const streamText = useCallback((fullText) => {
     if (streamRef.current) clearInterval(streamRef.current);
     let i = 0;
-    const chunkSize = 3;
     setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
     streamRef.current = setInterval(() => {
-      i += chunkSize;
+      i += 3;
       if (i >= fullText.length) {
         setMessages((prev) => {
           const copy = [...prev];
@@ -145,6 +171,9 @@ export default function useChat() {
       if (data?.conversationId) conversationIdRef.current = data.conversationId;
       const content = data?.output?.text || data?.body || JSON.stringify(data || {});
       streamText(content);
+
+      // Refresh conversation list after first message
+      loadConversations();
     } catch (err) {
       setMessages((prev) => [...prev, {
         role: 'assistant',
@@ -153,7 +182,10 @@ export default function useChat() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, streamText]);
+  }, [isLoading, streamText, loadConversations]);
 
-  return { messages, sendMessage, isConnected, isLoading, loadHistory, clearConversation };
+  return {
+    messages, sendMessage, isConnected, isLoading, loadHistory, clearConversation,
+    conversations, loadConversation, renameConversation, activeConversationId: conversationIdRef.current,
+  };
 }

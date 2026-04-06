@@ -26,6 +26,10 @@
     "capCost": "Custos e Pricing",
     "capGeneral": "Consultas AWS"
   },
+  "sidebar": {
+    "title": "Historico de Chats",
+    "empty": "Sem conversas"
+  },
   "login": {
     "title": "Entrar",
     "email": "Email",

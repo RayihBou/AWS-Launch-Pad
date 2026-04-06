@@ -85,6 +85,24 @@ def handler(event, context):
                 logger.error(f"Delete error: {e}")
         return {'statusCode': 200, 'body': json.dumps({'ok': True})}
 
+    # PATCH /history?conversationId=X - rename conversation
+    if method == 'PATCH':
+        try:
+            body = event.get('body', '{}')
+            if event.get('isBase64Encoded'):
+                body = base64.b64decode(body).decode()
+            payload = json.loads(body) if isinstance(body, str) else body
+            title = payload.get('title', '')
+            if conv_id and title:
+                ddb.update_item(
+                    Key={'userId': uid, 'conversationId': conv_id},
+                    UpdateExpression='SET title = :t',
+                    ExpressionAttributeValues={':t': title},
+                )
+        except Exception as e:
+            logger.error(f"Patch error: {e}")
+        return {'statusCode': 200, 'body': json.dumps({'ok': True})}
+
     # POST /chat
     try:
         body = event.get('body', '{}')

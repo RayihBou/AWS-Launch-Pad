@@ -26,6 +26,10 @@
     "capCost": "Cost & Pricing",
     "capGeneral": "AWS Guidance"
   },
+  "sidebar": {
+    "title": "Chat History",
+    "empty": "No conversations"
+  },
   "login": {
     "title": "Sign In",
     "email": "Email",

@@ -2,13 +2,15 @@ import useAuth from './hooks/useAuth';
 import useChat from './hooks/useWebSocket';
 import Header from './components/Header';
 import Chat from './components/Chat';
+import Sidebar from './components/Sidebar';
 import Login from './components/Login';
 import './App.css';
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 
 export default function App() {
   const { user, loading, error, login, logout, newPasswordRequired, completeNewPassword, mfaRequired, mfaSetupRequired, totpSecret, verifyTotp } = useAuth();
   const chat = useChat();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => { if (user) chat.loadHistory(); }, [user, chat.loadHistory]);
 
@@ -26,6 +28,16 @@ export default function App() {
     a.click();
     URL.revokeObjectURL(a.href);
   }, [chat.messages]);
+
+  const handleSelectConversation = useCallback((convId) => {
+    chat.loadConversation(convId);
+    setSidebarOpen(false);
+  }, [chat.loadConversation]);
+
+  const handleNewConversation = useCallback(() => {
+    chat.clearConversation();
+    setSidebarOpen(false);
+  }, [chat.clearConversation]);
 
   if (loading) return null;
 
@@ -46,7 +58,15 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header onLogout={logout} userEmail={user.email} onNewConversation={chat.clearConversation} onExport={exportConversation} />
+      <Sidebar
+        conversations={chat.conversations}
+        activeId={chat.activeConversationId}
+        onSelect={handleSelectConversation}
+        onRename={chat.renameConversation}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(v => !v)}
+      />
+      <Header onLogout={logout} userEmail={user.email} onNewConversation={handleNewConversation} onExport={exportConversation} />
       <Chat messages={chat.messages} sendMessage={chat.sendMessage} isConnected={chat.isConnected} isLoading={chat.isLoading} userName={user.email?.split('@')[0]} />
     </div>
   );
