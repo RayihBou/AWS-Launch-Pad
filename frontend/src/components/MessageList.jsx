@@ -4,6 +4,27 @@ import remarkGfm from 'remark-gfm';
 import { t } from '../i18n';
 import './MessageList.css';
 
+const TOOL_MESSAGES = [
+  'chat.thinking',
+  'chat.toolConsulting',
+  'chat.toolAnalyzing',
+  'chat.toolProcessing',
+];
+
+function ToolIndicator() {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setIdx(i => (i + 1) % TOOL_MESSAGES.length), 3000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <span className="tool-indicator">
+      <span className="typing-dots"><span /><span /><span /></span>
+      <span className="tool-indicator__text">{t(TOOL_MESSAGES[idx])}</span>
+    </span>
+  );
+}
+
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = () => {
@@ -84,7 +105,7 @@ export default function MessageList({ messages, isLoading }) {
         <div className="message message--assistant">
           <span className="message__label">{t('chat.assistant')}</span>
           <div className="message__bubble">
-            <span className="typing-dots"><span /><span /><span /></span>
+            <ToolIndicator />
           </div>
         </div>
       )}

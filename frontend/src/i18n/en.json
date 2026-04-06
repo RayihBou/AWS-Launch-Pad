@@ -14,7 +14,17 @@
     "you": "You",
     "assistant": "Assistant",
     "welcome": "Welcome! I'm your AWS cloud assistant. Ask me about monitoring, security, or any AWS topic.",
-    "error": "An error occurred. Please try again."
+    "error": "An error occurred. Please try again.",
+    "thinking": "Analyzing your request...",
+    "toolConsulting": "Consulting AWS services...",
+    "toolAnalyzing": "Processing information...",
+    "toolProcessing": "Preparing response...",
+    "welcomeTitle": "Hello, {name}",
+    "welcomeDesc": "I'm your AI-powered cloud assistant. I can help you with:",
+    "capMonitoring": "CloudWatch Monitoring",
+    "capSecurity": "Security & Compliance",
+    "capCost": "Cost & Pricing",
+    "capGeneral": "AWS Guidance"
   },
   "login": {
     "title": "Sign In",

@@ -119,6 +119,18 @@
 .code-block-wrapper .copy-btn { opacity: 0; }
 .code-block-wrapper:hover .copy-btn { opacity: 1; }
 
+/* Tool indicator */
+.tool-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tool-indicator__text {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  animation: fadeIn 0.3s ease;
+}
+
 /* Typing dots animation */
 .typing-dots {
   display: inline-flex;

@@ -5,3 +5,32 @@
   overflow: hidden;
   background: var(--color-background-primary);
 }
+
+.chat__welcome {
+  text-align: center;
+  padding: 40px 20px 0;
+  color: var(--color-text-secondary);
+}
+.chat__welcome h2 {
+  color: var(--color-text-primary);
+  font-size: 1.3rem;
+  margin-bottom: 8px;
+}
+.chat__welcome p {
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+.chat__capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.chat__cap-tag {
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border, #3d4852);
+  border-radius: 16px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  color: var(--color-aws-orange);
+}

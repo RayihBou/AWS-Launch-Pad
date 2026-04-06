@@ -14,7 +14,17 @@
     "you": "Tú",
     "assistant": "Asistente",
     "welcome": "Bienvenido. Soy tu asistente de nube de AWS. Consulta sobre monitoreo, seguridad o cualquier tema de AWS.",
-    "error": "Ocurrió un error. Intenta de nuevo."
+    "error": "Ocurrió un error. Intenta de nuevo.",
+    "thinking": "Analizando tu consulta...",
+    "toolConsulting": "Consultando servicios AWS...",
+    "toolAnalyzing": "Procesando informacion...",
+    "toolProcessing": "Preparando respuesta...",
+    "welcomeTitle": "Hola, {name}",
+    "welcomeDesc": "Soy tu asistente de nube con IA. Puedo ayudarte con:",
+    "capMonitoring": "Monitoreo CloudWatch",
+    "capSecurity": "Seguridad y Compliance",
+    "capCost": "Costos y Pricing",
+    "capGeneral": "Consultas AWS"
   },
   "login": {
     "title": "Iniciar Sesion",

@@ -47,7 +47,7 @@ export default function App() {
   return (
     <div className="app">
       <Header onLogout={logout} userEmail={user.email} onNewConversation={chat.clearConversation} onExport={exportConversation} />
-      <Chat messages={chat.messages} sendMessage={chat.sendMessage} isConnected={chat.isConnected} isLoading={chat.isLoading} />
+      <Chat messages={chat.messages} sendMessage={chat.sendMessage} isConnected={chat.isConnected} isLoading={chat.isLoading} userName={user.email?.split('@')[0]} />
     </div>
   );
 }
