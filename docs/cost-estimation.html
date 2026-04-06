@@ -135,7 +135,7 @@
             <div class="summary-card">
                 <div class="label">Costo Dominante</div>
                 <div class="value">~90%</div>
-                <div class="detail">Bedrock (Claude Sonnet 4)</div>
+                <div class="detail">Bedrock (Claude Sonnet 4.5)</div>
             </div>
         </div>
 
@@ -146,7 +146,7 @@
             <div class="bar-segment" style="width:1.5%;background:#58a6ff">Lambda</div>
             <div class="bar-segment" style="width:1.5%;background:#bc8cff">Otros</div>
         </div>
-        <p class="note">Los tokens de Bedrock (Claude Sonnet 4) representan la gran mayoria del costo. Todos los demas servicios son marginales en estos volumenes.</p>
+        <p class="note">Los tokens de Bedrock (Claude Sonnet 4.5) representan la gran mayoria del costo. Todos los demas servicios son marginales en estos volumenes.</p>
 
         <div class="section-title">Supuestos del Modelo de Costos</div>
         <div class="info-grid">
@@ -190,8 +190,8 @@
                 <tr><th>Servicio</th><th>Metrica</th><th>Precio Unitario</th><th>Fuente</th></tr>
             </thead>
             <tbody>
-                <tr><td>Bedrock Claude Sonnet 4</td><td>Input tokens</td><td>$3.00 / 1M tokens</td><td>AWS Pricing API</td></tr>
-                <tr><td>Bedrock Claude Sonnet 4</td><td>Output tokens</td><td>$15.00 / 1M tokens</td><td>AWS Pricing API</td></tr>
+                <tr><td>Bedrock Claude Sonnet 4.5</td><td>Input tokens</td><td>$3.00 / 1M tokens</td><td>AWS Pricing API</td></tr>
+                <tr><td>Bedrock Claude Sonnet 4.5</td><td>Output tokens</td><td>$15.00 / 1M tokens</td><td>AWS Pricing API</td></tr>
                 <tr><td>AgentCore Runtime</td><td>CPU</td><td>$0.0895 / vCPU-hora</td><td><a href="https://aws.amazon.com/es/bedrock/agentcore/pricing/">Pagina oficial</a></td></tr>
                 <tr><td>AgentCore Runtime</td><td>Memory</td><td>$0.00945 / GB-hora</td><td><a href="https://aws.amazon.com/es/bedrock/agentcore/pricing/">Pagina oficial</a></td></tr>
                 <tr><td>AgentCore Gateway</td><td>API Invocations (ListTools, InvokeTool, Ping)</td><td>$0.005 / 1,000 invocaciones</td><td><a href="https://aws.amazon.com/es/bedrock/agentcore/pricing/">Pagina oficial</a></td></tr>
@@ -225,7 +225,7 @@
                 </tr>
             </thead>
             <tbody>
-                <tr class="category-row"><td colspan="6">Amazon Bedrock (Claude Sonnet 4)</td></tr>
+                <tr class="category-row"><td colspan="6">Amazon Bedrock (Claude Sonnet 4.5)</td></tr>
                 <tr>
                     <td>Bedrock</td><td>Input tokens (1.5K/msg)</td>
                     <td>1.5M tok = $4.50</td><td>6M tok = $18.00</td><td>15M tok = $45.00</td>
@@ -326,7 +326,7 @@
         <div class="section-title">Analisis de Costos</div>
         <div class="text-block">
             <ul>
-                <li>Los tokens de Bedrock (Claude Sonnet 4) representan aproximadamente el 90% del costo total. Los output tokens ($15/1M) son 5x mas caros que los input tokens ($3/1M).</li>
+                <li>Los tokens de Bedrock (Claude Sonnet 4.5) representan aproximadamente el 90% del costo total. Los output tokens ($15/1M) son 5x mas caros que los input tokens ($3/1M).</li>
                 <li>AgentCore Memory es el segundo componente de costo (~9%), principalmente por las operaciones de retrieval ($0.50/1K) y almacenamiento long-term ($0.75/1K records).</li>
                 <li>AgentCore Runtime cobra solo por CPU activo (I/O wait es gratis), lo que reduce significativamente el costo vs. compute tradicional.</li>
                 <li>Lambda, API Gateway, DynamoDB, CloudFront, S3, ECR y Cognito combinados representan menos del 1% del costo total.</li>
@@ -366,7 +366,7 @@
         <div class="section-title">Servicios de la Solucion</div>
         <div class="text-block">
             <ul>
-                <li>Amazon Bedrock (Claude Sonnet 4) - Modelo de lenguaje para el agente conversacional</li>
+                <li>Amazon Bedrock (Claude Sonnet 4.5) - Modelo de lenguaje para el agente conversacional</li>
                 <li>Bedrock AgentCore Runtime - Ejecucion serverless del agente (Strands SDK, Docker arm64, facturacion por consumo activo)</li>
                 <li>Bedrock AgentCore Gateway - Conexion a 5 MCP servers (Knowledge, Pricing, WA Security, CloudWatch, CloudTrail)</li>
                 <li>Bedrock AgentCore Memory - Memoria a corto plazo (eventos de sesion) y largo plazo (hechos y preferencias)</li>
