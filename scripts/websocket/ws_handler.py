@@ -64,7 +64,7 @@ def handler(event, context):
         api_client = boto3.client('apigatewaymanagementapi', endpoint_url=f'https://{domain}/{stage}')
 
         # Send thinking indicator
-        send_to_client(api_client, connection_id, {'type': 'thinking'})
+        send_to_client(api_client, connection_id, {'type': 'status', 'message': 'Cargando historial...'})
 
         try:
             history = load_history(uid, conv_id)
@@ -78,6 +78,8 @@ def handler(event, context):
             if attachment:
                 agent_payload['attachment'] = attachment
 
+            send_to_client(api_client, connection_id, {'type': 'status', 'message': 'Consultando agente y herramientas...'})
+
             response = agentcore.invoke_agent_runtime(
                 agentRuntimeArn=RUNTIME_ARN, qualifier=QUALIFIER,
                 payload=json.dumps(agent_payload).encode(),
@@ -85,6 +87,7 @@ def handler(event, context):
             result = response.get('response', b'').read().decode() if hasattr(response.get('response', b''), 'read') else '{}'
             assistant_text = strip_emojis(json.loads(result).get('output', {}).get('text', ''))
 
+            send_to_client(api_client, connection_id, {'type': 'status', 'message': 'Guardando respuesta...'})
             history.append({'role': 'assistant', 'text': assistant_text})
             save_history(uid, conv_id, history, title)
 

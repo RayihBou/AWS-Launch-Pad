@@ -38,6 +38,7 @@ export default function useChat() {
   const [conversations, setConversations] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
   const streamRef = useRef(null);
   const messagesRef = useRef([]);
   const historyLoaded = useRef(false);
@@ -61,8 +62,12 @@ export default function useChat() {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.type === 'thinking') return; // ignore, we show our own indicator
+        if (data.type === 'status') {
+          setStatusMessage(data.message || '');
+          return;
+        }
         if (data.type === 'response' || data.type === 'error') {
+          setStatusMessage('');
           if (data.conversationId) conversationIdRef.current = data.conversationId;
           const text = data.output?.text || '';
           streamText(text);
@@ -211,7 +216,7 @@ export default function useChat() {
   }, [isLoading, streamText, loadConversations]);
 
   return {
-    messages, sendMessage, isConnected, isLoading, loadHistory, clearConversation,
+    messages, sendMessage, isConnected, isLoading, statusMessage, loadHistory, clearConversation,
     conversations, loadConversation, renameConversation, deleteConversation, activeConversationId: conversationIdRef.current,
   };
 }

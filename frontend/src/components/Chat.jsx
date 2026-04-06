@@ -3,7 +3,7 @@ import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import './Chat.css';
 
-export default function Chat({ messages, sendMessage, isConnected, isLoading, userName }) {
+export default function Chat({ messages, sendMessage, isConnected, isLoading, statusMessage, userName }) {
   return (
     <div className="chat">
       {messages.length === 0 && !isLoading && (
@@ -17,7 +17,7 @@ export default function Chat({ messages, sendMessage, isConnected, isLoading, us
           </div>
         </div>
       )}
-      <MessageList messages={messages} isLoading={isLoading} />
+      <MessageList messages={messages} isLoading={isLoading} statusMessage={statusMessage} />
       <MessageInput onSend={sendMessage} disabled={isLoading} isConnected={isConnected} />
     </div>
   );

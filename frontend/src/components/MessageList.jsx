@@ -44,7 +44,7 @@ function CopyButton({ text }) {
   );
 }
 
-export default function MessageList({ messages, isLoading }) {
+export default function MessageList({ messages, isLoading, statusMessage }) {
   const listRef = useRef(null);
   const userScrolled = useRef(false);
 
@@ -105,7 +105,10 @@ export default function MessageList({ messages, isLoading }) {
         <div className="message message--assistant">
           <span className="message__label">{t('chat.assistant')}</span>
           <div className="message__bubble">
-            <ToolIndicator />
+            <span className="tool-indicator">
+              <span className="typing-dots"><span /><span /><span /></span>
+              <span className="tool-indicator__text">{statusMessage || t('chat.thinking')}</span>
+            </span>
           </div>
         </div>
       )}
