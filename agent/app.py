@@ -90,11 +90,18 @@ def fetch_aws_pricing_page(url: str) -> str:
         except: pass
     for h, p in prices.items():
         html = html.replace('{priceOf!bedrockfoundationmodels/bedrockfoundationmodels!' + h + '}', '$' + p)
+    # Decode HTML entities before cleaning tags (pricing tables use escaped HTML)
+    html = html.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&').replace('&nbsp;', ' ')
     text = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL)
     text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL)
     text = re.sub(r'\{priceOf![^}]+\}', 'N/A', text)
     text = re.sub(r'<[^>]+>', ' ', text)
     text = re.sub(r'\s+', ' ', text).strip()
+    # Find the relevant section for the query (Anthropic section for Bedrock)
+    for keyword in ['Anthropic models', 'Anthropic']:
+        idx = text.find(keyword)
+        if idx >= 0:
+            return text[idx:idx+15000]
     return text[:30000]
 
 @tool
