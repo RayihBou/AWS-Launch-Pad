@@ -238,15 +238,25 @@ def create_agent(token=None):
             logger.warning(f"Gateway MCP failed: {e}")
     # Local MCP: well-architected-security
     try:
+        sec_env = {k: v for k, v in os.environ.items()}
+        sec_env["FASTMCP_LOG_LEVEL"] = "ERROR"
+        sec_env["AWS_DEFAULT_REGION"] = os.environ.get("AWS_REGION", "us-east-1")
+        # Create a minimal AWS config with a default profile so the MCP server
+        # uses the container's IAM role credentials instead of failing
+        aws_dir = "/tmp/.aws"
+        os.makedirs(aws_dir, exist_ok=True)
+        with open(f"{aws_dir}/config", "w") as f:
+            f.write(f"[default]\nregion = {sec_env['AWS_DEFAULT_REGION']}\n")
+        sec_env["AWS_CONFIG_FILE"] = f"{aws_dir}/config"
         sec = MCPClient(lambda: stdio_client(StdioServerParameters(
             command="python", args=["-m", "awslabs.well_architected_security_mcp_server.server"],
-            env={**os.environ, "FASTMCP_LOG_LEVEL": "ERROR"}
+            env=sec_env
         )))
         sec.__enter__()
         sec_tools = sec.list_tools_sync()
         all_tools.extend(sec_tools)
         mcp_clients.append(sec)
-        logger.info(f"Security MCP tools loaded: {len(sec_tools)}")
+        logger.info(f"Security MCP tools loaded: {[t.tool_name if hasattr(t,'tool_name') else str(t) for t in sec_tools]}")
     except Exception as e:
         logger.warning(f"Security MCP failed: {e}")
     return Agent(model=model, tools=all_tools, system_prompt=SYSTEM), mcp_clients
