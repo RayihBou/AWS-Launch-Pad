@@ -1,12 +1,8 @@
-"""AWS LaunchPad Agent - Strands SDK + MCP Gateway + boto3 tools.
-Runs as HTTP server on port 8080 for AgentCore Runtime.
-"""
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import json
-import os
-import logging
+"""AWS LaunchPad Agent - BedrockAgentCoreApp + Strands SDK + MCP Gateway + boto3 tools."""
+import os, re, logging, base64
 from datetime import datetime, timedelta
 
+from bedrock_agentcore.runtime import BedrockAgentCoreApp
 from strands import Agent
 from strands.models import BedrockModel
 from strands.tools.mcp.mcp_client import MCPClient
@@ -24,11 +20,9 @@ GATEWAY_URL = os.environ.get('GATEWAY_ENDPOINT', '')
 MEMORY_ID = os.environ.get('MEMORY_ID', '')
 LANG_NAMES = {'en': 'English', 'es': 'Spanish', 'pt': 'Portuguese'}
 
-import re
 def strip_emojis(text):
     text = re.sub(r'[\U0001F000-\U0001FFFF\u2600-\u27BF\u2B50\u2705\u274C\u26A0\u2714\u2716\u25AA-\u25FE\u2B06-\u2B07\u2934-\u2935\u23E9-\u23FA\u200D\uFE0F]+', '', text)
-    text = text.replace('**', '')
-    return text
+    return text.replace('**', '')
 
 SYSTEM = f"""You are AWS LaunchPad, an AI cloud operations assistant.
 
@@ -58,23 +52,22 @@ Use this reference when tools cannot find Bedrock pricing. Cite the source as "A
 ROLES: Users have roles (Operator or Viewer). Viewers can only read.
 You MUST respond in {LANG_NAMES.get(LANGUAGE, 'English')}."""
 
-# Lazy-init boto3 clients
+# --- Lazy-init boto3 clients ---
 _clients = {}
 def aws(svc):
     if svc not in _clients:
         _clients[svc] = boto3.client(svc, region_name=REGION)
     return _clients[svc]
 
-# --- boto3 tools as @tool decorators ---
+# --- boto3 tools ---
 @tool
 def fetch_aws_pricing_page(url: str) -> str:
     """Fetch an AWS pricing page and return its text content with resolved prices. Use for Bedrock pricing or any AWS service pricing when the Pricing API has no data."""
-    import urllib.request, re, json, gzip
+    import urllib.request, json, gzip
     if not url.startswith('https://aws.amazon.com/'):
         return 'Error: Only aws.amazon.com URLs allowed'
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
     html = urllib.request.urlopen(req, timeout=15).read().decode()
-    # Resolve {priceOf!...} placeholders using AWS pricing JSON
     hashes = set(re.findall(r'priceOf!bedrockfoundationmodels/bedrockfoundationmodels!([^}!]+)', html))
     prices = {}
     if hashes:
@@ -91,14 +84,12 @@ def fetch_aws_pricing_page(url: str) -> str:
         except: pass
     for h, p in prices.items():
         html = html.replace('{priceOf!bedrockfoundationmodels/bedrockfoundationmodels!' + h + '}', '$' + p)
-    # Decode HTML entities before cleaning tags (pricing tables use escaped HTML)
     html = html.replace('&lt;', '<').replace('&gt;', '>').replace('&amp;', '&').replace('&nbsp;', ' ')
     text = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL)
     text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL)
     text = re.sub(r'\{priceOf![^}]+\}', 'N/A', text)
     text = re.sub(r'<[^>]+>', ' ', text)
     text = re.sub(r'\s+', ' ', text).strip()
-    # Find the relevant section for the query (Anthropic section for Bedrock)
     for keyword in ['Anthropic models', 'Anthropic']:
         idx = text.find(keyword)
         if idx >= 0:
@@ -186,46 +177,37 @@ def get_cost_summary(days: int = 30, service_filter: str = '') -> dict:
             usage = float(g['Metrics']['UsageQuantity']['Amount'])
             if amt > 0.001:
                 name = g['Keys'][0]
-                # Clean usage type names for readability
                 name = name.replace('USE1-', '').replace('USW2-', '').replace('EUW1-', '').replace('APN1-', '')
                 items.append({'name': name, 'cost': round(amt, 4), 'usage_quantity': round(usage, 2)})
     items.sort(key=lambda x: x['cost'], reverse=True)
     return {'items': items[:25], 'total': round(sum(i['cost'] for i in items), 2), 'period': f'{start} to {end}', 'filter': service_filter or 'all services'}
 
-BOTO3_TOOLS = [list_s3_buckets, list_s3_objects, describe_ec2_instances, describe_cloudwatch_alarms, get_cloudwatch_metrics, lookup_cloudtrail_events, list_lambda_functions, get_cost_summary]
+BOTO3_TOOLS = [fetch_aws_pricing_page, list_s3_buckets, list_s3_objects, describe_ec2_instances, describe_cloudwatch_alarms, get_cloudwatch_metrics, lookup_cloudtrail_events, list_lambda_functions, get_cost_summary]
 
 # --- AgentCore Memory ---
-_memory_session = None
-
 def get_memory_session(actor_id):
-    """Get or create a memory session for the user."""
-    global _memory_session
     if not MEMORY_ID:
         return None
     try:
         from bedrock_agentcore.memory.session import MemorySessionManager
         mgr = MemorySessionManager(memory_id=MEMORY_ID, region_name=REGION)
-        session = mgr.create_memory_session(actor_id=actor_id, session_id=f"chat_{actor_id}")
-        return session
+        return mgr.create_memory_session(actor_id=actor_id, session_id=f"chat_{actor_id}")
     except Exception as e:
         logger.warning(f"Memory session error: {e}")
         return None
 
 def search_memories(session, query):
-    """Search long-term memories for relevant context."""
     if not session:
         return ""
     try:
         records = session.search_long_term_memories(query=query, namespace_prefix="/", top_k=5)
         if records:
-            facts = [str(r) for r in records]
-            return "Known facts about this user:\n" + "\n".join(facts[:5]) + "\n\n"
+            return "Known facts about this user:\n" + "\n".join(str(r) for r in records[:5]) + "\n\n"
     except Exception as e:
         logger.warning(f"Memory search error: {e}")
     return ""
 
 def save_to_memory(session, user_text, assistant_text):
-    """Save conversation turn to AgentCore Memory for long-term extraction."""
     if not session:
         return
     try:
@@ -235,11 +217,10 @@ def save_to_memory(session, user_text, assistant_text):
     except Exception as e:
         logger.warning(f"Memory save error: {e}")
 
+# --- Agent creation ---
 def create_agent(token=None):
-    """Create Strands Agent with MCP Gateway tools + boto3 tools."""
     model = BedrockModel(model_id=MODEL_ID, streaming=False)
     all_tools = list(BOTO3_TOOLS)
-
     if GATEWAY_URL and token:
         try:
             mcp = MCPClient(lambda: streamablehttp_client(GATEWAY_URL, headers={"Authorization": f"Bearer {token}"}))
@@ -250,107 +231,83 @@ def create_agent(token=None):
             return Agent(model=model, tools=all_tools, system_prompt=SYSTEM), mcp
         except Exception as e:
             logger.warning(f"MCP connection failed, using boto3 tools only: {e}")
-
     return Agent(model=model, tools=all_tools, system_prompt=SYSTEM), None
 
-def process_request(text, history=None, role='Viewer', token=None, attachment=None, actor_id='anonymous'):
-    """Process a chat request with conversation history."""
+# --- Attachment handling ---
+def handle_attachment(prompt, attachment):
+    content_blocks = [{'text': prompt}]
+    mime = attachment.get('type', 'image/jpeg')
+    data = base64.b64decode(attachment['base64'])
+    raw_name = attachment.get('name', 'document')
+    name = re.sub(r'[^a-zA-Z0-9\s\-\(\)\[\]]', '', raw_name.rsplit('.', 1)[0])
+    name = re.sub(r'\s+', ' ', name).strip() or 'document'
+
+    if mime.startswith('image/'):
+        fmt = mime.split('/')[-1]
+        if fmt == 'jpg': fmt = 'jpeg'
+        content_blocks.append({'image': {'format': fmt, 'source': {'bytes': data}}})
+    else:
+        ext = raw_name.rsplit('.', 1)[-1].lower() if '.' in raw_name else ''
+        fmt_map = {
+            'application/pdf': 'pdf', 'text/csv': 'csv', 'text/plain': 'txt',
+            'text/html': 'html', 'text/markdown': 'md', 'application/json': 'txt',
+            'application/msword': 'doc',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+            'application/vnd.ms-excel': 'xls',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+        }
+        ext_map = {'yaml': 'txt', 'yml': 'txt', 'md': 'md', 'csv': 'csv', 'json': 'txt', 'txt': 'txt', 'html': 'html', 'xls': 'xls', 'xlsx': 'xlsx', 'doc': 'doc', 'docx': 'docx', 'pdf': 'pdf'}
+        doc_fmt = fmt_map.get(mime) or ext_map.get(ext, 'txt')
+        content_blocks.append({'document': {'format': doc_fmt, 'name': name, 'source': {'bytes': data}}})
+
+    r = aws('bedrock-runtime').converse(
+        modelId=MODEL_ID,
+        messages=[{'role': 'user', 'content': content_blocks}],
+        system=[{'text': SYSTEM}],
+        inferenceConfig={'maxTokens': 4096, 'temperature': 0.3},
+    )
+    return r['output']['message']['content'][0]['text']
+
+# --- BedrockAgentCoreApp ---
+app = BedrockAgentCoreApp()
+
+@app.entrypoint
+def invoke(payload, context):
+    text = payload.get('input', {}).get('text', '') or payload.get('prompt', '')
+    history = payload.get('history', [])
+    role = payload.get('role', 'Viewer')
+    token = payload.get('token', '')
+    attachment = payload.get('attachment')
+    actor_id = payload.get('actor_id', 'anonymous')
+
     agent, mcp = create_agent(token)
     try:
-        # Search long-term memory for relevant context
         mem_session = get_memory_session(actor_id)
         memory_context = search_memories(mem_session, text)
 
-        context = memory_context
+        ctx = memory_context
         if history:
-            parts = []
-            for h in history:
-                r = h.get('role', 'user')
-                t = h.get('text', '')
-                if r in ('user', 'assistant') and t:
-                    label = 'User' if r == 'user' else 'Assistant'
-                    parts.append(f"{label}: {t}")
+            parts = [f"{'User' if h.get('role') == 'user' else 'Assistant'}: {h.get('text', '')}" for h in history if h.get('role') in ('user', 'assistant') and h.get('text')]
             if parts:
-                context += "Previous conversation:\n" + "\n".join(parts[-10:]) + "\n\n"
+                ctx += "Previous conversation:\n" + "\n".join(parts[-10:]) + "\n\n"
 
-        prompt = f"{context}[User role: {role}]\nUser: {text}"
+        prompt = f"{ctx}[User role: {role}]\nUser: {text}"
 
-        # If attachment, use Bedrock Converse API directly
         if attachment:
-            import base64 as b64
-            import re
-            content_blocks = [{'text': prompt}]
-            mime = attachment.get('type', 'image/jpeg')
-            data = b64.b64decode(attachment['base64'])
-            raw_name = attachment.get('name', 'document')
-            name = re.sub(r'[^a-zA-Z0-9\s\-\(\)\[\]]', '', raw_name.rsplit('.', 1)[0])
-            name = re.sub(r'\s+', ' ', name).strip() or 'document'
+            result = handle_attachment(prompt, attachment)
+        else:
+            result = str(agent(prompt))
 
-            if mime.startswith('image/'):
-                fmt = mime.split('/')[-1]
-                if fmt == 'jpg': fmt = 'jpeg'
-                content_blocks.append({'image': {'format': fmt, 'source': {'bytes': data}}})
-            else:
-                # Map MIME to Converse API document format
-                ext = raw_name.rsplit('.', 1)[-1].lower() if '.' in raw_name else ''
-                fmt_map = {
-                    'application/pdf': 'pdf', 'text/csv': 'csv', 'text/plain': 'txt',
-                    'text/html': 'html', 'text/markdown': 'md', 'application/json': 'txt',
-                    'application/msword': 'doc',
-                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-                    'application/vnd.ms-excel': 'xls',
-                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
-                }
-                ext_map = {'yaml': 'txt', 'yml': 'txt', 'md': 'md', 'csv': 'csv', 'json': 'txt', 'txt': 'txt', 'html': 'html', 'xls': 'xls', 'xlsx': 'xlsx', 'doc': 'doc', 'docx': 'docx', 'pdf': 'pdf'}
-                doc_fmt = fmt_map.get(mime) or ext_map.get(ext, 'txt')
-                content_blocks.append({'document': {'format': doc_fmt, 'name': name, 'source': {'bytes': data}}})
-
-            r = aws('bedrock-runtime').converse(
-                modelId=MODEL_ID,
-                messages=[{'role': 'user', 'content': content_blocks}],
-                system=[{'text': SYSTEM}],
-                inferenceConfig={'maxTokens': 4096, 'temperature': 0.3},
-            )
-            result = r['output']['message']['content'][0]['text']
-            save_to_memory(mem_session, text, result)
-            return result
-
-        result = str(agent(prompt))
         save_to_memory(mem_session, text, result)
-        return result
+        return {'output': {'text': strip_emojis(result)}}
     except Exception as e:
         logger.error(f"Agent error: {e}")
-        return f"Error: {e}"
+        return {'output': {'text': f'Error: {e}'}}
     finally:
         if mcp:
             try: mcp.__exit__(None, None, None)
             except: pass
 
-class Handler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        n = int(self.headers.get('Content-Length', 0))
-        body = json.loads(self.rfile.read(n)) if n else {}
-        text = body.get('input', {}).get('text', '') or body.get('text', '')
-        history = body.get('history', [])
-        role = body.get('role', 'Viewer')
-        token = body.get('token', '')
-        attachment = body.get('attachment')
-        actor_id = body.get('actor_id', 'anonymous')
-
-        out = strip_emojis(process_request(text, history, role, token, attachment, actor_id))
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(json.dumps({'output': {'text': out}}).encode())
-
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b'ok')
-
-    def log_message(self, *a):
-        pass
-
 if __name__ == '__main__':
     logger.info(f"LaunchPad Agent starting (model={MODEL_ID}, lang={LANGUAGE}, gateway={GATEWAY_URL})")
-    HTTPServer(('0.0.0.0', 8080), Handler).serve_forever()
+    app.run()
