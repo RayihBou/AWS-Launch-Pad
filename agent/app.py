@@ -234,30 +234,38 @@ def create_agent(token=None):
     return Agent(model=model, tools=all_tools, system_prompt=SYSTEM), None
 
 # --- Attachment handling ---
+TEXT_FORMATS = {'txt', 'md', 'csv', 'json', 'yaml', 'yml', 'html'}
+
 def handle_attachment(prompt, attachment):
-    content_blocks = [{'text': prompt}]
-    mime = attachment.get('type', 'image/jpeg')
+    mime = attachment.get('type', 'application/octet-stream')
     data = base64.b64decode(attachment['base64'])
     raw_name = attachment.get('name', 'document')
     name = re.sub(r'[^a-zA-Z0-9\s\-\(\)\[\]]', '', raw_name.rsplit('.', 1)[0])
     name = re.sub(r'\s+', ' ', name).strip() or 'document'
+    ext = raw_name.rsplit('.', 1)[-1].lower() if '.' in raw_name else ''
 
+    # Text-based files: inject content directly into prompt
+    if ext in TEXT_FORMATS or mime.startswith('text/'):
+        text_content = data.decode('utf-8', errors='replace')
+        full_prompt = f"{prompt}\n\n<attached_file name=\"{raw_name}\">\n{text_content}\n</attached_file>"
+        return None, full_prompt  # Signal to use agent instead of Converse
+
+    # Images: use Converse API
+    content_blocks = [{'text': prompt}]
     if mime.startswith('image/'):
         fmt = mime.split('/')[-1]
         if fmt == 'jpg': fmt = 'jpeg'
         content_blocks.append({'image': {'format': fmt, 'source': {'bytes': data}}})
     else:
-        ext = raw_name.rsplit('.', 1)[-1].lower() if '.' in raw_name else ''
+        # Binary documents (PDF, DOC, DOCX, XLS, XLSX)
         fmt_map = {
-            'application/pdf': 'pdf', 'text/csv': 'csv', 'text/plain': 'txt',
-            'text/html': 'html', 'text/markdown': 'md', 'application/json': 'txt',
-            'application/msword': 'doc',
+            'application/pdf': 'pdf', 'application/msword': 'doc',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
             'application/vnd.ms-excel': 'xls',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
         }
-        ext_map = {'yaml': 'txt', 'yml': 'txt', 'md': 'md', 'csv': 'csv', 'json': 'txt', 'txt': 'txt', 'html': 'html', 'xls': 'xls', 'xlsx': 'xlsx', 'doc': 'doc', 'docx': 'docx', 'pdf': 'pdf'}
-        doc_fmt = fmt_map.get(mime) or ext_map.get(ext, 'txt')
+        ext_map = {'pdf': 'pdf', 'doc': 'doc', 'docx': 'docx', 'xls': 'xls', 'xlsx': 'xlsx'}
+        doc_fmt = fmt_map.get(mime) or ext_map.get(ext, 'pdf')
         content_blocks.append({'document': {'format': doc_fmt, 'name': name, 'source': {'bytes': data}}})
 
     r = aws('bedrock-runtime').converse(
@@ -266,7 +274,7 @@ def handle_attachment(prompt, attachment):
         system=[{'text': SYSTEM}],
         inferenceConfig={'maxTokens': 4096, 'temperature': 0.3},
     )
-    return r['output']['message']['content'][0]['text']
+    return r['output']['message']['content'][0]['text'], None  # Converse result
 
 # --- BedrockAgentCoreApp ---
 app = BedrockAgentCoreApp()
@@ -294,7 +302,15 @@ def invoke(payload, context):
         prompt = f"{ctx}[User role: {role}]\nUser: {text}"
 
         if attachment:
-            result = handle_attachment(prompt, attachment)
+            try:
+                converse_result, text_prompt = handle_attachment(prompt, attachment)
+                if converse_result:
+                    result = converse_result
+                else:
+                    result = str(agent(text_prompt))
+            except Exception as e:
+                logger.error(f"Attachment error: {e}")
+                result = str(agent(prompt))
         else:
             result = str(agent(prompt))
 
