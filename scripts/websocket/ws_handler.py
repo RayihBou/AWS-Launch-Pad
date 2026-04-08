@@ -77,6 +77,7 @@ def handler(event, context):
                 'input': {'text': text}, 'role': role,
                 'history': history[-20:], 'token': token, 'actor_id': uid,
             }
+            logger.info(f"Invoking agent: actor_id={uid}, text={text[:50]}, history_len={len(history)}, has_attachment={attachment is not None}")
             if attachment:
                 s3_key = attachment.get('s3Key')
                 if s3_key:

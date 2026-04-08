@@ -50,6 +50,7 @@ BEDROCK PRICING REFERENCE (us-east-1, on-demand, per 1M tokens):
 - Amazon Nova Lite: input $0.06, output $0.24
 Use this reference when tools cannot find Bedrock pricing. Cite the source as "Amazon Bedrock Pricing page (aws.amazon.com/bedrock/pricing)".
 ROLES: Users have roles (Operator or Viewer). Viewers can only read.
+RESPONSE RULES: NEVER generate example user messages or prompts in your response. NEVER simulate what the user might say next. NEVER generate text prefixed with "User:" or "Hola," as if you were the user. Your response ends after YOUR answer. Do not continue the conversation beyond your single response.
 You MUST respond in {LANG_NAMES.get(LANGUAGE, 'English')}."""
 
 # --- Lazy-init boto3 clients ---
@@ -190,8 +191,9 @@ def get_memory_session(actor_id):
         return None
     try:
         from bedrock_agentcore.memory.session import MemorySessionManager
+        safe_id = re.sub(r'[^a-zA-Z0-9_-]', '-', actor_id)
         mgr = MemorySessionManager(memory_id=MEMORY_ID, region_name=REGION)
-        return mgr.create_memory_session(actor_id=actor_id, session_id=f"chat_{actor_id}")
+        return mgr.create_memory_session(actor_id=safe_id, session_id=f"chat-{safe_id}")
     except Exception as e:
         logger.warning(f"Memory session error: {e}")
         return None
@@ -202,7 +204,8 @@ def search_memories(session, query):
     try:
         records = session.search_long_term_memories(query=query, namespace_prefix="/", top_k=5)
         if records:
-            return "Known facts about this user:\n" + "\n".join(str(r) for r in records[:5]) + "\n\n"
+            facts = [str(r) for r in records[:5]]
+            return "Known facts about this user:\n" + "\n".join(facts) + "\n\n"
     except Exception as e:
         logger.warning(f"Memory search error: {e}")
     return ""
@@ -288,18 +291,22 @@ def invoke(payload, context):
     attachment = payload.get('attachment')
     actor_id = payload.get('actor_id', 'anonymous')
 
+    mem_session = get_memory_session(actor_id)
     agent, mcp = create_agent(token)
     try:
-        mem_session = get_memory_session(actor_id)
         memory_context = search_memories(mem_session, text)
 
         ctx = memory_context
         if history:
-            parts = [f"{'User' if h.get('role') == 'user' else 'Assistant'}: {h.get('text', '')}" for h in history if h.get('role') in ('user', 'assistant') and h.get('text')]
+            parts = []
+            for h in history:
+                if h.get('role') in ('user', 'assistant') and h.get('text'):
+                    parts.append(f"<{h['role']}>{h['text']}</{h['role']}>")
             if parts:
-                ctx += "Previous conversation:\n" + "\n".join(parts[-10:]) + "\n\n"
+                ctx += "<conversation_history>\n" + "\n".join(parts[-10:]) + "\n</conversation_history>\n\n"
 
-        prompt = f"{ctx}[User role: {role}]\nUser: {text}"
+        role_note = f"(User role: {role}) " if role != 'Operator' else ""
+        prompt = f"{ctx}{role_note}{text}"
 
         if attachment:
             try:
@@ -314,7 +321,7 @@ def invoke(payload, context):
         else:
             result = str(agent(prompt))
 
-        save_to_memory(mem_session, text, result)
+        save_to_memory(mem_session, text, strip_emojis(result)[:500])
         return {'output': {'text': strip_emojis(result)}}
     except Exception as e:
         logger.error(f"Agent error: {e}")
