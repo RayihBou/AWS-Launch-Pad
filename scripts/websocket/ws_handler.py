@@ -1,12 +1,14 @@
-import json, os, boto3, re, time, uuid, logging
+import json, os, boto3, re, time, uuid, logging, base64
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 agentcore = boto3.client('bedrock-agentcore', region_name='us-east-1')
+s3 = boto3.client('s3', region_name='us-east-1')
 ddb = boto3.resource('dynamodb', region_name='us-east-1').Table('launchpad-conversations-v2')
 RUNTIME_ARN = os.environ.get('RUNTIME_ARN', '')
 QUALIFIER = os.environ.get('QUALIFIER', 'default_endpoint')
+UPLOADS_BUCKET = os.environ.get('UPLOADS_BUCKET', 'launchpad-uploads-302263078976')
 MAX_HISTORY = 50
 
 def strip_emojis(text):
@@ -76,7 +78,26 @@ def handler(event, context):
                 'history': history[-20:], 'token': token, 'actor_id': uid,
             }
             if attachment:
-                agent_payload['attachment'] = attachment
+                s3_key = attachment.get('s3Key')
+                if s3_key:
+                    try:
+                        logger.info(f"Downloading from S3: {UPLOADS_BUCKET}/{s3_key}")
+                        obj = s3.get_object(Bucket=UPLOADS_BUCKET, Key=s3_key)
+                        file_bytes = obj['Body'].read()
+                        att_type = attachment.get('type', 'application/octet-stream')
+                        att_name = attachment.get('name', 'file')
+                        attachment = {
+                            'base64': base64.b64encode(file_bytes).decode(),
+                            'type': att_type,
+                            'name': att_name,
+                        }
+                        s3.delete_object(Bucket=UPLOADS_BUCKET, Key=s3_key)
+                        logger.info(f"S3 download OK, {len(file_bytes)} bytes")
+                    except Exception as e:
+                        logger.error(f"S3 download error: {e}")
+                        attachment = None
+                if attachment:
+                    agent_payload['attachment'] = attachment
 
             send_to_client(api_client, connection_id, {'type': 'status', 'message': 'Consultando agente y herramientas...'})
 

@@ -193,7 +193,7 @@ export default function useChat() {
         conversationId: conversationIdRef.current,
       };
       if (attachment) {
-        payload.attachment = { base64: attachment.base64, type: attachment.type, name: attachment.name };
+        payload.attachment = attachment;
       }
       wsRef.current.send(JSON.stringify(payload));
       return; // Response comes via onmessage
@@ -210,7 +210,7 @@ export default function useChat() {
         role: auth?.role || 'Viewer',
         history: messagesRef.current.filter(m => m.content?.length > 0).map(m => ({ role: m.role, text: m.content })),
       };
-      if (attachment) payload.attachment = { base64: attachment.base64, type: attachment.type, name: attachment.name };
+      if (attachment) payload.attachment = attachment;
 
       const response = await fetch(config.agentEndpoint, { method: 'POST', headers, body: JSON.stringify(payload) });
       const data = await response.json();

@@ -10,9 +10,11 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 agentcore = boto3.client('bedrock-agentcore', region_name='us-east-1')
+s3 = boto3.client('s3', region_name='us-east-1')
 ddb = boto3.resource('dynamodb', region_name='us-east-1').Table('launchpad-conversations-v2')
 RUNTIME_ARN = os.environ.get('RUNTIME_ARN', '')
 QUALIFIER = os.environ.get('QUALIFIER', 'default_endpoint')
+UPLOADS_BUCKET = os.environ.get('UPLOADS_BUCKET', 'launchpad-uploads-302263078976')
 MAX_HISTORY = 50
 
 def decode_jwt(token):
@@ -75,6 +77,16 @@ def handler(event, context):
     uid, role, token = get_user(headers)
     qs = event.get('queryStringParameters') or {}
     conv_id = qs.get('conversationId', '')
+
+    # GET /upload-url?filename=X&contentType=Y - generate presigned PUT URL
+    if method == 'GET' and '/upload-url' in path:
+        filename = qs.get('filename', 'file')
+        content_type = qs.get('contentType', 'application/octet-stream')
+        s3_key = f"uploads/{uid}/{uuid.uuid4()}/{filename}"
+        url = s3.generate_presigned_url('put_object', Params={
+            'Bucket': UPLOADS_BUCKET, 'Key': s3_key, 'ContentType': content_type,
+        }, ExpiresIn=300)
+        return {'statusCode': 200, 'body': json.dumps({'uploadUrl': url, 's3Key': s3_key})}
 
     # GET /conversations - list all conversations for user
     if method == 'GET' and '/conversations' in path:
