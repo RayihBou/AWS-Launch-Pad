@@ -68,7 +68,7 @@ export default function App() {
         onToggle={() => setSidebarOpen(v => !v)}
       />
       <Header onLogout={logout} userEmail={user.email} onNewConversation={handleNewConversation} onExport={exportConversation} />
-      <Chat messages={chat.messages} sendMessage={chat.sendMessage} isConnected={chat.isConnected} isLoading={chat.isLoading} statusMessage={chat.statusMessage} userName={user.email?.split('@')[0]} />
+      <Chat messages={chat.messages} sendMessage={chat.sendMessage} isConnected={chat.isConnected} isLoading={chat.isLoading} userName={user.email?.split('@')[0]} />
     </div>
   );
 }
