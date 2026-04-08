@@ -8,6 +8,7 @@ from strands.models import BedrockModel
 from strands.tools.mcp.mcp_client import MCPClient
 from strands.tools import tool
 from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.stdio import stdio_client, StdioServerParameters
 import boto3
 
 logging.basicConfig(level=logging.INFO)
@@ -224,17 +225,31 @@ def save_to_memory(session, user_text, assistant_text):
 def create_agent(token=None):
     model = BedrockModel(model_id=MODEL_ID, streaming=False)
     all_tools = list(BOTO3_TOOLS)
+    mcp_clients = []
+    # Gateway MCP (knowledge, pricing, cloudwatch, cloudtrail)
     if GATEWAY_URL and token:
         try:
-            mcp = MCPClient(lambda: streamablehttp_client(GATEWAY_URL, headers={"Authorization": f"Bearer {token}"}))
-            mcp.__enter__()
-            mcp_tools = mcp.list_tools_sync()
-            all_tools.extend(mcp_tools)
-            logger.info(f"MCP tools loaded: {len(mcp_tools)}")
-            return Agent(model=model, tools=all_tools, system_prompt=SYSTEM), mcp
+            gw = MCPClient(lambda: streamablehttp_client(GATEWAY_URL, headers={"Authorization": f"Bearer {token}"}))
+            gw.__enter__()
+            all_tools.extend(gw.list_tools_sync())
+            mcp_clients.append(gw)
+            logger.info(f"Gateway MCP tools loaded: {len(all_tools) - len(BOTO3_TOOLS)}")
         except Exception as e:
-            logger.warning(f"MCP connection failed, using boto3 tools only: {e}")
-    return Agent(model=model, tools=all_tools, system_prompt=SYSTEM), None
+            logger.warning(f"Gateway MCP failed: {e}")
+    # Local MCP: well-architected-security
+    try:
+        sec = MCPClient(lambda: stdio_client(StdioServerParameters(
+            command="python", args=["-m", "awslabs.well_architected_security_mcp_server.server"],
+            env={**os.environ, "FASTMCP_LOG_LEVEL": "ERROR"}
+        )))
+        sec.__enter__()
+        sec_tools = sec.list_tools_sync()
+        all_tools.extend(sec_tools)
+        mcp_clients.append(sec)
+        logger.info(f"Security MCP tools loaded: {len(sec_tools)}")
+    except Exception as e:
+        logger.warning(f"Security MCP failed: {e}")
+    return Agent(model=model, tools=all_tools, system_prompt=SYSTEM), mcp_clients
 
 # --- Attachment handling ---
 TEXT_FORMATS = {'txt', 'md', 'csv', 'json', 'yaml', 'yml', 'html'}
@@ -292,7 +307,7 @@ def invoke(payload, context):
     actor_id = payload.get('actor_id', 'anonymous')
 
     mem_session = get_memory_session(actor_id)
-    agent, mcp = create_agent(token)
+    agent, mcp_clients = create_agent(token)
     try:
         memory_context = search_memories(mem_session, text)
 
@@ -327,8 +342,8 @@ def invoke(payload, context):
         logger.error(f"Agent error: {e}")
         return {'output': {'text': f'Error: {e}'}}
     finally:
-        if mcp:
-            try: mcp.__exit__(None, None, None)
+        for c in mcp_clients:
+            try: c.__exit__(None, None, None)
             except: pass
 
 if __name__ == '__main__':
