@@ -53,6 +53,7 @@ Use this reference when tools cannot find Bedrock pricing. Cite the source as "A
 ROLES: Users have roles (Operator or Viewer). Viewers can only read.
 RESPONSE RULES: NEVER generate example user messages or prompts in your response. NEVER simulate what the user might say next. NEVER generate text prefixed with "User:" or "Hola," as if you were the user. Your response ends after YOUR answer. Do not continue the conversation beyond your single response.
 COMPLEX QUERIES: When a user asks for a broad analysis (e.g. "analyze all security issues"), focus on the most critical findings first and limit tool calls to 5-8 maximum. Summarize what you found and offer to dive deeper into specific areas. Do NOT try to call every available tool in a single response.
+IAM SAFETY: IAM tools are READ-ONLY. You can list users, roles, policies, groups, and simulate permissions. You CANNOT create, delete, or modify IAM resources. If asked to make IAM changes, provide the AWS CLI commands or console steps instead.
 You MUST respond in {LANG_NAMES.get(LANGUAGE, 'English')}."""
 
 # --- Lazy-init boto3 clients ---
@@ -224,9 +225,10 @@ def save_to_memory(session, user_text, assistant_text):
 
 # --- Agent creation ---
 LOCAL_MCP_SERVERS = [
-    ("security", "awslabs.well_architected_security_mcp_server.server"),
-    ("network", "awslabs.aws_network_mcp_server.server"),
-    ("billing", "awslabs.billing_cost_management_mcp_server.server"),
+    ("security", "awslabs.well_architected_security_mcp_server.server", []),
+    ("network", "awslabs.aws_network_mcp_server.server", []),
+    ("billing", "awslabs.billing_cost_management_mcp_server.server", []),
+    ("iam", "awslabs.iam_mcp_server.server", ["--readonly"]),
 ]
 
 def _mcp_env():
@@ -257,11 +259,11 @@ def create_agent(token=None):
             logger.warning(f"Gateway MCP failed: {e}")
     # Local MCP servers
     env = _mcp_env()
-    for name, module in LOCAL_MCP_SERVERS:
+    for name, module, extra_args in LOCAL_MCP_SERVERS:
         try:
-            m = module  # capture for lambda
-            c = MCPClient(lambda m=m: stdio_client(StdioServerParameters(
-                command="python", args=["-m", m], env=env
+            m, ea = module, extra_args
+            c = MCPClient(lambda m=m, ea=ea: stdio_client(StdioServerParameters(
+                command="python", args=["-m", m] + ea, env=env
             )))
             c.__enter__()
             tools = c.list_tools_sync()
