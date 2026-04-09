@@ -3,7 +3,8 @@
     "title": "AWS LaunchPad",
     "subtitle": "Asistente de Nube con IA",
     "newConversation": "Nueva conversacion",
-    "export": "Exportar conversacion"
+    "export": "Exportar conversacion",
+    "manageUsers": "Gestionar usuarios"
   },
   "chat": {
     "placeholder": "Consulta sobre tu entorno de AWS...",

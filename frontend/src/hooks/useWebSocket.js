@@ -15,9 +15,7 @@ function getAuthInfo() {
     user.getSession((err, session) => {
       if (err || !session?.isValid()) { resolve(null); return; }
       const payload = session.getIdToken().decodePayload();
-      const groups = payload['cognito:groups'] || [];
-      const role = groups.includes('Operator') ? 'Operator' : 'Viewer';
-      resolve({ token: session.getIdToken().getJwtToken(), role });
+      resolve({ token: session.getIdToken().getJwtToken() });
     });
   });
 }

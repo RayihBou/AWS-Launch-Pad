@@ -8,7 +8,7 @@ def handler(event, context):
     try:
         r = client.invoke_agent_runtime(
             agentRuntimeArn=RUNTIME_ARN, qualifier=QUALIFIER,
-            payload=json.dumps({'input': {'text': 'ping'}, 'role': 'Operator', 'history': [], 'token': '', 'actor_id': 'warmup'}).encode(),
+            payload=json.dumps({'input': {'text': 'ping'}, 'history': [], 'token': '', 'actor_id': 'warmup'}).encode(),
         )
         result = r.get('response', b'').read().decode() if hasattr(r.get('response', b''), 'read') else '{}'
         print(f"Warmup OK: {len(result)} bytes")

@@ -29,9 +29,7 @@ def get_user(headers):
     token = auth.replace('Bearer ', '') if auth.startswith('Bearer ') else auth
     claims = decode_jwt(token)
     uid = claims.get('email', claims.get('sub', 'anonymous'))
-    groups = claims.get('cognito:groups', [])
-    role = 'Operator' if 'Operator' in groups else 'Viewer'
-    return uid, role, token
+    return uid, token
 
 def load_history(uid, conv_id):
     try:
@@ -74,7 +72,7 @@ def handler(event, context):
     headers = event.get('headers', {})
     method = event.get('requestContext', {}).get('http', {}).get('method', 'POST')
     path = event.get('requestContext', {}).get('http', {}).get('path', '')
-    uid, role, token = get_user(headers)
+    uid, token = get_user(headers)
     qs = event.get('queryStringParameters') or {}
     conv_id = qs.get('conversationId', '')
 
@@ -144,7 +142,6 @@ def handler(event, context):
 
         agent_payload = {
             'input': {'text': text},
-            'role': role,
             'history': history[-20:],
             'token': token,
             'actor_id': uid,

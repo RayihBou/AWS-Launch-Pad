@@ -80,7 +80,6 @@ def handler(event, context):
         # Get auth context from authorizer
         auth = event.get('requestContext', {}).get('authorizer', {})
         uid = auth.get('email', 'anonymous')
-        role = auth.get('role', 'Viewer')
         token = auth.get('token', '')
 
         # Parse message
@@ -103,7 +102,7 @@ def handler(event, context):
             title = text[:60] if len(history) <= 1 else None
 
             agent_payload = {
-                'input': {'text': text}, 'role': role,
+                'input': {'text': text},
                 'history': history[-20:], 'token': token, 'actor_id': uid,
             }
             logger.info(f"Invoking agent: actor_id={uid}, text={text[:50]}, history_len={len(history)}, has_attachment={attachment is not None}")

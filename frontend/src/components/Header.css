@@ -52,7 +52,7 @@
   color: #0f1419;
 }
 
-.header__new-chat {
+.header__icon-btn {
   background: transparent;
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border, #3d4852);
@@ -61,9 +61,10 @@
   cursor: pointer;
   display: flex;
   align-items: center;
+  text-decoration: none;
 }
 
-.header__new-chat:hover {
+.header__icon-btn:hover {
   color: var(--color-aws-orange);
   border-color: var(--color-aws-orange);
 }

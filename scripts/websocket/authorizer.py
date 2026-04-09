@@ -28,8 +28,6 @@ def handler(event, context):
         return {'principalId': 'user', 'policyDocument': {'Version': '2012-10-17', 'Statement': [{'Action': 'execute-api:Invoke', 'Effect': 'Deny', 'Resource': method_arn}]}}
 
     email = claims.get('email', claims.get('sub', 'anonymous'))
-    groups = claims.get('cognito:groups', [])
-    role = 'Operator' if 'Operator' in groups else 'Viewer'
     # Allow all routes on this API
     arn_parts = method_arn.split(':')
     region = arn_parts[3]
@@ -43,5 +41,5 @@ def handler(event, context):
     return {
         'principalId': email,
         'policyDocument': {'Version': '2012-10-17', 'Statement': [{'Action': 'execute-api:Invoke', 'Effect': 'Allow', 'Resource': resource_arn}]},
-        'context': {'email': email, 'role': role, 'token': token}
+        'context': {'email': email, 'token': token}
     }
