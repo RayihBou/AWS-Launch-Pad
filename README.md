@@ -24,24 +24,59 @@ AWS LaunchPad is a read-only cloud operations assistant that helps users monitor
 ## Architecture
 
 ```
-User -> CloudFront (custom domain)
-  |-- /* -> S3 (React frontend)
-  |-- Login -> Cognito (MFA TOTP mandatory)
-        |-- Chat -> WebSocket API Gateway (Lambda Authorizer, 900s timeout)
-        |     |-- Lambda WS Handler (heartbeat progress messages)
-        |           |-- DynamoDB v2 (conversation history)
-        |           |-- S3 presigned URL (file attachments + HTML reports)
-        |           |-- AgentCore Runtime (BedrockAgentCoreApp, Docker arm64)
-        |                 |-- 15 boto3 @tools (S3, EC2, CW, CT, Lambda, CE, EKS, WAF, RDS, HTML)
-        |                 |-- 6 MCP Local servers (security, network, billing, IAM, support, ECS)
-        |                 |-- MCP Gateway -> 4 targets (knowledge, pricing, cloudwatch, cloudtrail)
-        |                 |-- AgentCore Memory (long-term facts)
-        |                 |-- Bedrock Claude Sonnet 4.6 (Converse API + multimodal)
-        |
-        |-- REST -> HTTP API Gateway (Cognito JWT auth)
-              |-- GET /upload-url, GET /conversations, GET/DELETE/PATCH /history
+                              ┌─────────────────────────────────────┐
+                              │         Amazon CloudFront           │
+                              │   launchpad.rayihbou.people.aws.dev │
+                              └──────────┬──────────┬───────────────┘
+                                         │          │
+                              ┌──────────▼──┐  ┌────▼──────────────┐
+                              │ WebSocket   │  │ HTTP API Gateway  │
+                              │ API Gateway │  │ (Cognito JWT)     │
+                              │ (900s)      │  │                   │
+                              └──────┬──────┘  └────┬──────────────┘
+                                     │              │
+                              ┌──────▼──────┐  ┌────▼──────────────┐
+                              │ Lambda      │  │ Lambda Proxy      │
+                              │ WS Handler  │  │ REST + S3 URLs    │
+                              │ (heartbeat) │  │                   │
+                              └──────┬──────┘  └────┬──────────────┘
+                                     │              │
+                    ┌────────────────▼──┐     ┌────▼──────────────┐
+                    │  AgentCore Runtime │     │   DynamoDB v2     │
+                    │  (Docker arm64)    │     │   Conversations   │
+                    │                    │     └───────────────────┘
+                    │  ┌──────────────┐  │
+                    │  │ 15 boto3     │  │     ┌───────────────────┐
+                    │  │ @tools       │  │     │  S3 Uploads       │
+                    │  └──────────────┘  │     │  (presigned URLs) │
+                    │  ┌──────────────┐  │     │  Reports + Files  │
+                    │  │ 6 MCP Local  │  │     └───────────────────┘
+                    │  │ (stdio)      │  │
+                    │  └──────────────┘  │     ┌───────────────────┐
+                    │  ┌──────────────┐  │     │  AgentCore Memory │
+                    │  │ MCP Gateway  │──┼────▶│  (long-term)      │
+                    │  │ (4 targets)  │  │     └───────────────────┘
+                    │  └──────────────┘  │
+                    │  ┌──────────────┐  │     ┌───────────────────┐
+                    │  │ Claude 4.6   │──┼────▶│  Amazon Bedrock   │
+                    │  │ (Converse)   │  │     └───────────────────┘
+                    │  └──────────────┘  │
+                    └───────────────────┘
 
-Warmup: EventBridge (5 min) -> Lambda -> AgentCore Runtime (ping)
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ MCP Local Servers (stdio, inside Docker container):             │
+  │ security | network | billing | iam (readonly) | support | ecs  │
+  ├─────────────────────────────────────────────────────────────────┤
+  │ MCP Gateway Targets (Lambda):                                   │
+  │ aws-knowledge | pricing | cloudwatch | cloudtrail               │
+  ├─────────────────────────────────────────────────────────────────┤
+  │ boto3 @tools:                                                   │
+  │ S3 | EC2 | CloudWatch | CloudTrail | Lambda | Cost Explorer |  │
+  │ EKS | WAF | S3-security | RDS | HTML report | pricing fetch   │
+  └─────────────────────────────────────────────────────────────────┘
+
+  Warmup: EventBridge (5 min) ──▶ Lambda ──▶ AgentCore Runtime /ping
+  Auth:   Cognito User Pool (MFA TOTP mandatory)
 ```
 
 ## Tech Stack
