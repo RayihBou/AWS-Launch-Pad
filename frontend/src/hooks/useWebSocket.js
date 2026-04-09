@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { CognitoUserPool } from 'amazon-cognito-identity-js';
 import { config } from '../config';
 import { t } from '../i18n';
@@ -14,7 +14,6 @@ function getAuthInfo() {
   return new Promise((resolve) => {
     user.getSession((err, session) => {
       if (err || !session?.isValid()) { resolve(null); return; }
-      const payload = session.getIdToken().decodePayload();
       resolve({ token: session.getIdToken().getJwtToken() });
     });
   });
@@ -42,7 +41,6 @@ export default function useChat() {
   const historyLoaded = useRef(false);
   const conversationIdRef = useRef(crypto.randomUUID());
   const wsRef = useRef(null);
-  const pendingResolve = useRef(null);
 
   // WebSocket connection
   const reconnectTimer = useRef(null);
@@ -206,7 +204,6 @@ export default function useChat() {
       const payload = {
         input: { text: text || 'Analiza este archivo' },
         conversationId: conversationIdRef.current,
-        role: auth?.role || 'Viewer',
         history: messagesRef.current.filter(m => m.content?.length > 0).map(m => ({ role: m.role, text: m.content })),
       };
       if (attachment) payload.attachment = attachment;
