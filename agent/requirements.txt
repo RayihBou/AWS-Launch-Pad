@@ -5,3 +5,4 @@ boto3>=1.35.0
 mcp>=1.0.0
 awslabs.well-architected-security-mcp-server
 awslabs.aws-network-mcp-server
+awslabs.billing-cost-management-mcp-server

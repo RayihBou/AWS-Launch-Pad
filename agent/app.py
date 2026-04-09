@@ -226,6 +226,7 @@ def save_to_memory(session, user_text, assistant_text):
 LOCAL_MCP_SERVERS = [
     ("security", "awslabs.well_architected_security_mcp_server.server"),
     ("network", "awslabs.aws_network_mcp_server.server"),
+    ("billing", "awslabs.billing_cost_management_mcp_server.server"),
 ]
 
 def _mcp_env():

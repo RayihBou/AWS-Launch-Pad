@@ -22,7 +22,7 @@ export default function Login({ onLogin, onCompleteNewPassword, onVerifyTotp, er
             <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpUri)}`} alt="QR Code" />
           </div>
           <p className="login__secret">Clave manual: <code>{totpSecret}</code></p>
-          <input type="text" placeholder="Codigo de 6 digitos" value={totpCode} onChange={(e) => setTotpCode(e.target.value)} required autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" />
+          <input type="text" placeholder="Codigo de 6 digitos" value={totpCode} autoFocus onChange={(e) => setTotpCode(e.target.value)} required autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" />
           <button type="submit">Verificar</button>
         </form>
       );
@@ -31,7 +31,7 @@ export default function Login({ onLogin, onCompleteNewPassword, onVerifyTotp, er
       return (
         <form onSubmit={handleTotp}>
           <p className="login__message">Ingresa el codigo de tu app authenticator</p>
-          <input type="text" placeholder="Codigo de 6 digitos" value={totpCode} onChange={(e) => setTotpCode(e.target.value)} required autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" />
+          <input type="text" placeholder="Codigo de 6 digitos" value={totpCode} autoFocus onChange={(e) => setTotpCode(e.target.value)} required autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" />
           <button type="submit">Verificar</button>
         </form>
       );
@@ -40,14 +40,14 @@ export default function Login({ onLogin, onCompleteNewPassword, onVerifyTotp, er
       return (
         <form onSubmit={handleNewPassword}>
           <p className="login__message">{t('login.newPasswordMessage')}</p>
-          <input type="password" placeholder={t('login.newPassword')} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+          <input type="password" placeholder={t('login.newPassword')} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required autoFocus />
           <button type="submit">{t('login.changePassword')}</button>
         </form>
       );
     }
     return (
       <form onSubmit={handleLogin}>
-        <input type="email" placeholder={t('login.email')} value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <input type="email" placeholder={t('login.email')} value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
         <input type="password" placeholder={t('login.password')} value={password} onChange={(e) => setPassword(e.target.value)} required />
         <button type="submit">{t('login.submit')}</button>
       </form>

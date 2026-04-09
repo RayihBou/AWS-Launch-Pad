@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { t } from '../i18n';
 import { config } from '../config';
 import { CognitoUserPool } from 'amazon-cognito-identity-js';
@@ -25,7 +25,7 @@ async function uploadToS3(file) {
   return s3Key;
 }
 
-export default function MessageInput({ onSend, disabled, isConnected }) {
+export default function MessageInput({ onSend, disabled, isConnected, messageCount }) {
   const [text, setText] = useState('');
   const [attachment, setAttachment] = useState(null); // {name, type, file, preview}
   const [uploading, setUploading] = useState(false);
@@ -38,6 +38,11 @@ export default function MessageInput({ onSend, disabled, isConnected }) {
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 200) + 'px';
   }, []);
+
+  // Autofocus on mount, when loading finishes, and on conversation change
+  useEffect(() => {
+    if (!disabled) textareaRef.current?.focus();
+  }, [disabled, messageCount]);
 
   const handleFile = (e) => {
     const file = e.target.files?.[0];
@@ -68,6 +73,7 @@ export default function MessageInput({ onSend, disabled, isConnected }) {
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     if (attachment?.preview) URL.revokeObjectURL(attachment.preview);
     setAttachment(null);
+    setTimeout(() => textareaRef.current?.focus(), 50);
   };
 
   const handleKeyDown = (e) => {

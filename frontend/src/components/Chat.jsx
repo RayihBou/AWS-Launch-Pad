@@ -18,7 +18,7 @@ export default function Chat({ messages, sendMessage, isConnected, isLoading, st
         </div>
       )}
       <MessageList messages={messages} isLoading={isLoading} statusMessage={statusMessage} />
-      <MessageInput onSend={sendMessage} disabled={isLoading} isConnected={isConnected} />
+      <MessageInput onSend={sendMessage} disabled={isLoading} isConnected={isConnected} messageCount={messages.length} />
     </div>
   );
 }
