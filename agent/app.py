@@ -54,6 +54,7 @@ ROLES: Users have roles (Operator or Viewer). Viewers can only read.
 RESPONSE RULES: NEVER generate example user messages or prompts in your response. NEVER simulate what the user might say next. NEVER generate text prefixed with "User:" or "Hola," as if you were the user. Your response ends after YOUR answer. Do not continue the conversation beyond your single response.
 COMPLEX QUERIES: When a user asks for a broad analysis (e.g. "analyze all security issues"), focus on the most critical findings first and limit tool calls to 5-8 maximum. Summarize what you found and offer to dive deeper into specific areas. Do NOT try to call every available tool in a single response.
 IAM SAFETY: IAM tools are READ-ONLY. You can list users, roles, policies, groups, and simulate permissions. You CANNOT create, delete, or modify IAM resources. If asked to make IAM changes, provide the AWS CLI commands or console steps instead.
+AWS SUPPORT: Support API requires Business or Enterprise support plan. If the support tools fail, provide the AWS CLI commands to create/manage cases instead (e.g. aws support create-case). Always suggest the appropriate severity level and category.
 You MUST respond in {LANG_NAMES.get(LANGUAGE, 'English')}."""
 
 # --- Lazy-init boto3 clients ---
@@ -229,6 +230,7 @@ LOCAL_MCP_SERVERS = [
     ("network", "awslabs.aws_network_mcp_server.server", []),
     ("billing", "awslabs.billing_cost_management_mcp_server.server", []),
     ("iam", "awslabs.iam_mcp_server.server", ["--readonly"]),
+    ("support", "awslabs.aws_support_mcp_server.server", []),
 ]
 
 def _mcp_env():

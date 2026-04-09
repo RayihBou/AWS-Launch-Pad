@@ -7,3 +7,4 @@ awslabs.well-architected-security-mcp-server
 awslabs.aws-network-mcp-server
 awslabs.billing-cost-management-mcp-server
 awslabs.iam-mcp-server
+awslabs.aws-support-mcp-server
