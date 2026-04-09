@@ -189,6 +189,32 @@ def get_cost_summary(days: int = 30, service_filter: str = '') -> dict:
 
 BOTO3_TOOLS = [fetch_aws_pricing_page, list_s3_buckets, list_s3_objects, describe_ec2_instances, describe_cloudwatch_alarms, get_cloudwatch_metrics, lookup_cloudtrail_events, list_lambda_functions, get_cost_summary]
 
+@tool
+def list_eks_clusters() -> dict:
+    """List all EKS clusters in the account with their status and version."""
+    eks = boto3.client('eks', region_name=REGION)
+    names = eks.list_clusters()['clusters']
+    clusters = []
+    for n in names:
+        d = eks.describe_cluster(name=n)['cluster']
+        clusters.append({'name': n, 'status': d['status'], 'version': d['version'], 'endpoint': d.get('endpoint',''), 'platformVersion': d.get('platformVersion','')})
+    return {'clusters': clusters, 'count': len(clusters)}
+
+@tool
+def describe_eks_cluster(cluster_name: str) -> dict:
+    """Get detailed info about an EKS cluster including nodegroups and addons."""
+    eks = boto3.client('eks', region_name=REGION)
+    c = eks.describe_cluster(name=cluster_name)['cluster']
+    ngs = eks.list_nodegroups(clusterName=cluster_name)['nodegroups']
+    nodegroups = []
+    for ng in ngs:
+        d = eks.describe_nodegroup(clusterName=cluster_name, nodegroupName=ng)['nodegroup']
+        nodegroups.append({'name': ng, 'status': d['status'], 'instanceTypes': d.get('instanceTypes',[]), 'desiredSize': d.get('scalingConfig',{}).get('desiredSize'), 'minSize': d.get('scalingConfig',{}).get('minSize'), 'maxSize': d.get('scalingConfig',{}).get('maxSize')})
+    addons = eks.list_addons(clusterName=cluster_name)['addons']
+    return {'cluster': {'name': c['name'], 'status': c['status'], 'version': c['version'], 'platformVersion': c.get('platformVersion',''), 'vpcConfig': c.get('resourcesVpcConfig',{})}, 'nodegroups': nodegroups, 'addons': addons}
+
+BOTO3_TOOLS = [fetch_aws_pricing_page, list_s3_buckets, list_s3_objects, describe_ec2_instances, describe_cloudwatch_alarms, get_cloudwatch_metrics, lookup_cloudtrail_events, list_lambda_functions, get_cost_summary, list_eks_clusters, describe_eks_cluster]
+
 # --- AgentCore Memory ---
 def get_memory_session(actor_id):
     if not MEMORY_ID:
@@ -226,18 +252,20 @@ def save_to_memory(session, user_text, assistant_text):
 
 # --- Agent creation ---
 LOCAL_MCP_SERVERS = [
-    ("security", "awslabs.well_architected_security_mcp_server.server", []),
-    ("network", "awslabs.aws_network_mcp_server.server", []),
-    ("billing", "awslabs.billing_cost_management_mcp_server.server", []),
-    ("iam", "awslabs.iam_mcp_server.server", ["--readonly"]),
-    ("support", "awslabs.aws_support_mcp_server.server", []),
+    ("security", "awslabs.well_architected_security_mcp_server.server", [], {}),
+    ("network", "awslabs.aws_network_mcp_server.server", [], {}),
+    ("billing", "awslabs.billing_cost_management_mcp_server.server", [], {}),
+    ("iam", "awslabs.iam_mcp_server.server", ["--readonly"], {}),
+    ("support", "awslabs.aws_support_mcp_server.server", [], {}),
+    ("ecs", "awslabs.ecs_mcp_server.main", [], {"ALLOW_WRITE": "false", "ALLOW_SENSITIVE_DATA": "false"}),
 ]
 
 def _mcp_env():
     """Create env dict for local MCP server subprocesses."""
     env = {k: v for k, v in os.environ.items()}
     env["FASTMCP_LOG_LEVEL"] = "ERROR"
-    env["AWS_DEFAULT_REGION"] = os.environ.get("AWS_REGION", "us-east-1")
+    env["AWS_DEFAULT_REGION"] = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
+    env["AWS_REGION"] = env["AWS_DEFAULT_REGION"]
     aws_dir = "/tmp/.aws"
     os.makedirs(aws_dir, exist_ok=True)
     with open(f"{aws_dir}/config", "w") as f:
@@ -245,36 +273,46 @@ def _mcp_env():
     env["AWS_CONFIG_FILE"] = f"{aws_dir}/config"
     return env
 
-def create_agent(token=None):
-    model = BedrockModel(model_id=MODEL_ID, streaming=False)
-    all_tools = list(BOTO3_TOOLS)
-    mcp_clients = []
-    # Gateway MCP (knowledge, pricing, cloudwatch, cloudtrail)
-    if GATEWAY_URL and token:
-        try:
-            gw = MCPClient(lambda: streamablehttp_client(GATEWAY_URL, headers={"Authorization": f"Bearer {token}"}))
-            gw.__enter__()
-            all_tools.extend(gw.list_tools_sync())
-            mcp_clients.append(gw)
-            logger.info(f"Gateway MCP tools loaded: {len(all_tools) - len(BOTO3_TOOLS)}")
-        except Exception as e:
-            logger.warning(f"Gateway MCP failed: {e}")
-    # Local MCP servers
+# Initialize local MCP servers ONCE at startup (not per request)
+_local_mcp_clients = []
+_local_mcp_tools = []
+
+def _init_local_mcp():
+    global _local_mcp_clients, _local_mcp_tools
+    if _local_mcp_tools:
+        return  # already initialized
     env = _mcp_env()
-    for name, module, extra_args in LOCAL_MCP_SERVERS:
+    for name, module, extra_args, extra_env in LOCAL_MCP_SERVERS:
         try:
             m, ea = module, extra_args
-            c = MCPClient(lambda m=m, ea=ea: stdio_client(StdioServerParameters(
-                command="python", args=["-m", m] + ea, env=env
+            e = {**env, **extra_env}
+            c = MCPClient(lambda m=m, ea=ea, e=e: stdio_client(StdioServerParameters(
+                command="python", args=["-m", m] + ea, env=e
             )))
             c.__enter__()
             tools = c.list_tools_sync()
-            all_tools.extend(tools)
-            mcp_clients.append(c)
+            _local_mcp_tools.extend(tools)
+            _local_mcp_clients.append(c)
             logger.info(f"{name} MCP: {len(tools)} tools loaded")
         except Exception as e:
             logger.warning(f"{name} MCP failed: {e}")
-    return Agent(model=model, tools=all_tools, system_prompt=SYSTEM), mcp_clients
+
+def create_agent(token=None):
+    _init_local_mcp()
+    model = BedrockModel(model_id=MODEL_ID, streaming=False)
+    all_tools = list(BOTO3_TOOLS) + list(_local_mcp_tools)
+    gw_client = None
+    # Gateway MCP (knowledge, pricing, cloudwatch, cloudtrail) - per request (needs token)
+    if GATEWAY_URL and token:
+        try:
+            gw_client = MCPClient(lambda: streamablehttp_client(GATEWAY_URL, headers={"Authorization": f"Bearer {token}"}))
+            gw_client.__enter__()
+            all_tools.extend(gw_client.list_tools_sync())
+            logger.info(f"Gateway MCP tools loaded, total tools: {len(all_tools)}")
+        except Exception as e:
+            logger.warning(f"Gateway MCP failed: {e}")
+            gw_client = None
+    return Agent(model=model, tools=all_tools, system_prompt=SYSTEM), gw_client
 
 # --- Attachment handling ---
 TEXT_FORMATS = {'txt', 'md', 'csv', 'json', 'yaml', 'yml', 'html'}
@@ -332,7 +370,7 @@ def invoke(payload, context):
     actor_id = payload.get('actor_id', 'anonymous')
 
     mem_session = get_memory_session(actor_id)
-    agent, mcp_clients = create_agent(token)
+    agent, gw_client = create_agent(token)
     try:
         memory_context = search_memories(mem_session, text)
 
@@ -367,8 +405,8 @@ def invoke(payload, context):
         logger.error(f"Agent error: {e}")
         return {'output': {'text': f'Error: {e}'}}
     finally:
-        for c in mcp_clients:
-            try: c.__exit__(None, None, None)
+        if gw_client:
+            try: gw_client.__exit__(None, None, None)
             except: pass
 
 if __name__ == '__main__':
