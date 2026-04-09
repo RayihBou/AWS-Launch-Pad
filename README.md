@@ -25,7 +25,7 @@ AWS LaunchPad is a read-only cloud operations assistant that helps users monitor
 
 ```
                          +-------------------------------------+
-                         |          Amazon CloudFront           |
+                         |          Amazon CloudFront          |
                          |  launchpad.rayihbou.people.aws.dev  |
                          +--------+-----------------+----------+
                                   |                 |
@@ -61,7 +61,7 @@ AWS LaunchPad is a read-only cloud operations assistant that helps users monitor
   +----------------------------------------------------------------+
   | MCP Local (stdio):  security | network | billing | iam | ecs   |
   | MCP Gateway:        aws-knowledge | pricing | cloudwatch | ct  |
-  | boto3 @tools:       S3 EC2 CW CT Lambda CE EKS WAF RDS HTML   |
+  | boto3 @tools:       S3 EC2 CW CT Lambda CE EKS WAF RDS HTML    |
   +----------------------------------------------------------------+
 
   Warmup:  EventBridge (5 min) --> Lambda --> Runtime /ping
