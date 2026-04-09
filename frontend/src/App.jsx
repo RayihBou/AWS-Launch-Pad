@@ -1,5 +1,6 @@
 import useAuth from './hooks/useAuth';
 import useChat from './hooks/useWebSocket';
+import useIdleTimeout from './hooks/useIdleTimeout';
 import Header from './components/Header';
 import Chat from './components/Chat';
 import Sidebar from './components/Sidebar';
@@ -11,6 +12,7 @@ export default function App() {
   const { user, loading, error, login, logout, newPasswordRequired, completeNewPassword, mfaRequired, mfaSetupRequired, totpSecret, verifyTotp } = useAuth();
   const chat = useChat();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  useIdleTimeout(user ? logout : null);
 
   useEffect(() => { if (user) chat.loadHistory(); }, [user, chat.loadHistory]);
 
