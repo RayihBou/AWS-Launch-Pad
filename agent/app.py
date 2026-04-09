@@ -55,8 +55,9 @@ RESPONSE RULES: NEVER generate example user messages or prompts in your response
 COMPLEX QUERIES: When a user asks for a broad analysis (e.g. "analyze all security issues"), focus on the most critical findings first and limit tool calls to 5-8 maximum. Summarize what you found and offer to dive deeper into specific areas. Do NOT try to call every available tool in a single response.
 IAM SAFETY: IAM tools are READ-ONLY. You can list users, roles, policies, groups, and simulate permissions. You CANNOT create, delete, or modify IAM resources. If asked to make IAM changes, provide the AWS CLI commands or console steps instead.
 AWS SUPPORT: Support API requires Business or Enterprise support plan. If the support tools fail, provide the AWS CLI commands to create/manage cases instead (e.g. aws support create-case). Always suggest the appropriate severity level and category.
-REMEDIATION GUIDANCE: When security assessments find issues or disabled services, ALWAYS provide: (1) explanation of the risk, (2) the exact AWS CLI command to remediate, (3) console steps as alternative. Format CLI commands in code blocks ready to copy. Before any CLI commands, add this note: "Puedes ejecutar estos comandos en AWS CloudShell (icono de terminal en la barra superior de la consola AWS) o en tu terminal local con AWS CLI configurado." The user will execute them, not the agent.
-You MUST respond in {LANG_NAMES.get(LANGUAGE, 'English')}."""
+REMEDIATION GUIDANCE: When security assessments find issues or disabled services, ALWAYS provide: (1) explanation of the risk, (2) the exact AWS CLI command to remediate, (3) estimated monthly cost of enabling the service using pricing tools or your knowledge (e.g. "GuardDuty: ~$4/mes por millon de eventos"), (4) console steps as alternative. Format CLI commands in code blocks ready to copy. Before any CLI commands, add this note: "Puedes ejecutar estos comandos en AWS CloudShell (icono de terminal en la barra superior de la consola AWS) o en tu terminal local con AWS CLI configurado." The user will execute them, not the agent.
+HTML REPORTS: When the user asks for an HTML report, ALWAYS do it in TWO steps: (1) FIRST, perform the analysis and show the results in the chat as text. (2) THEN, tell the user: "Si quieres que genere un reporte HTML descargable con estos resultados, solo pidelo." When the user confirms, use generate_html_report with the data you already have in the conversation - do NOT call analysis tools again. Pass sections as JSON array where each section has title, content (short HTML), and commands (array of CLI strings). The tool builds the HTML and adds copy buttons to commands automatically. This avoids timeouts. When mentioning AWS services or resources in HTML reports, ALWAYS add hyperlinks to the AWS Console using this format: https://us-east-1.console.aws.amazon.com/SERVICE/home?region=us-east-1 (e.g. guardduty, securityhub, vpc, ec2, s3, iam, cloudwatch, ecs, eks). For specific resources, link directly: e.g. https://us-east-1.console.aws.amazon.com/ec2/home?region=us-east-1#SecurityGroups:group-id=sg-xxx
+You MUST respond in {LANG_NAMES.get(LANGUAGE, 'English')}. When responding in Spanish, ALWAYS use proper accents/tildes (á, é, í, ó, ú, ñ) on every word that requires them. Examples: información, configuración, análisis, también, está, aquí, diagnóstico, código, región."""
 
 # --- Lazy-init boto3 clients ---
 _clients = {}
@@ -64,6 +65,97 @@ def aws(svc):
     if svc not in _clients:
         _clients[svc] = boto3.client(svc, region_name=REGION)
     return _clients[svc]
+
+UPLOADS_BUCKET = os.environ.get('UPLOADS_BUCKET', 'launchpad-uploads-302263078976')
+
+HTML_TEMPLATE = '''<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{title}</title>
+<link rel="icon" href="https://a0.awsstatic.com/libra-css/images/site/fav/favicon.ico">
+<base target="_blank">
+<style>
+:root {{--bg1:#0f1419;--bg2:#1a1f26;--bg3:#242b33;--txt1:#ffffff;--txt2:#b0b8c1;--orange:#ff9900;--border:#3d4852}}
+html,body {{background:var(--bg1);margin:0;padding:0;font-family:'Amazon Ember','Helvetica Neue',Helvetica,Arial,sans-serif;color:var(--txt1)}}
+.header {{background:linear-gradient(135deg,#232f3e,#1a252f);padding:20px 40px;display:flex;align-items:center;gap:20px;border-bottom:3px solid var(--orange)}}
+.header img {{height:35px}} .header h1 {{margin:0;font-size:1.5rem;font-weight:500}}
+.header .download-btn {{margin-left:auto;background:var(--orange);color:var(--bg1);border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:6px}}
+.header .download-btn:hover {{opacity:0.85}}
+.container {{max-width:1600px;margin:0 auto;padding:30px}}
+.section-title {{font-size:1.3rem;margin:30px 0 15px;padding-bottom:8px;border-bottom:2px solid var(--orange)}}
+.card {{background:var(--bg2);border-radius:8px;padding:20px;border:1px solid var(--border);margin-bottom:20px}}
+.summary-cards {{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:30px}}
+.summary-card {{background:var(--bg2);border-radius:8px;padding:20px;border:1px solid var(--border)}}
+.summary-card .value {{font-size:2rem;font-weight:600;color:var(--orange)}}
+.summary-card .label {{color:var(--txt2);font-size:0.9rem;margin-top:5px}}
+table {{width:100%;border-collapse:collapse;font-size:0.9rem}}
+th {{background:var(--bg3);color:var(--txt1);padding:12px 8px;text-align:left;border:1px solid var(--border);position:sticky;top:0}}
+td {{padding:10px 8px;border:1px solid var(--border);color:var(--txt2)}}
+tr:hover td {{background:var(--bg3)}}
+.tag-positive {{background:#1a4d1a;color:#90EE90;padding:2px 8px;border-radius:4px;font-size:0.8rem}}
+.tag-negative {{background:#4d1a1a;color:#FF6B6B;padding:2px 8px;border-radius:4px;font-size:0.8rem}}
+.tag-warning {{background:#4d4d1a;color:#FFD700;padding:2px 8px;border-radius:4px;font-size:0.8rem}}
+code {{background:var(--bg1);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:0.85rem;color:#3fb950}}
+pre {{background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto}}
+pre code {{border:none;padding:0}}
+.code-wrapper {{position:relative;background:var(--bg1);border:1px solid var(--border);border-radius:8px;margin:12px 0}}
+.code-wrapper code {{display:block;padding:16px;padding-right:70px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:13px;color:#3fb950;white-space:pre-wrap;word-break:break-word;border:none}}
+.code-wrapper .copy-btn {{position:absolute;top:8px;right:8px;background:var(--bg3);border:1px solid var(--border);color:var(--txt2);padding:6px 10px;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:4px;font-size:11px}}
+.code-wrapper .copy-btn:hover {{background:var(--orange);color:var(--bg1)}}
+.code-wrapper .copy-btn.copied {{background:#3fb950;color:var(--bg1)}}
+ul,ol {{color:var(--txt2)}} li {{margin-bottom:6px}}
+a {{color:var(--orange)}}
+.footer {{text-align:center;padding:30px;color:var(--txt2);font-size:0.85rem;border-top:1px solid var(--border);margin-top:40px}}
+</style>
+</head>
+<body>
+<div class="header">
+<img src="https://a0.awsstatic.com/libra-css/images/logos/aws_smile-header-desktop-en-white_59x35.png" alt="AWS Logo">
+<h1>{title}</h1>
+<button class="download-btn" onclick="downloadPage()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar</button>
+</div>
+<div class="container">
+{content}
+</div>
+<div class="footer">Generado por AWS LaunchPad | {date}</div>
+<script>
+function downloadPage(){{const a=document.createElement('a');a.href='data:text/html;charset=utf-8,'+encodeURIComponent(document.documentElement.outerHTML);a.download=document.title.replace(/[^a-zA-Z0-9]/g,'_')+'.html';a.click()}}
+function copyCode(btn){{navigator.clipboard.writeText(btn.previousElementSibling.textContent).then(()=>{{btn.classList.add('copied');btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Copiado';setTimeout(()=>{{btn.classList.remove('copied');btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copiar'}},2000)}})}}
+document.querySelectorAll('pre').forEach(pre=>{{
+  const wrapper=document.createElement('div');wrapper.className='code-wrapper';
+  pre.parentNode.insertBefore(wrapper,pre);
+  const code=document.createElement('code');code.textContent=pre.textContent;
+  const btn=document.createElement('button');btn.className='copy-btn';btn.onclick=function(){{copyCode(this)}};
+  btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copiar';
+  wrapper.appendChild(code);wrapper.appendChild(btn);pre.remove();
+}});
+</script>
+</body>
+</html>'''
+
+@tool
+def generate_html_report(title: str, sections: str) -> str:
+    """Generate an HTML report with AWS Dark Theme and return a viewable URL. The sections parameter is a JSON string with an array of section objects. Each section has: title (string), content (string - short HTML with tables, lists, or text), and optionally commands (array of CLI command strings to show with copy buttons). Example: [{"title":"Servicios","content":"<table><tr><th>Servicio</th><th>Estado</th></tr><tr><td>GuardDuty</td><td><span class='tag-positive'>Activo</span></td></tr></table>","commands":["aws guardduty enable-detector"]}]. Keep each section concise. Do NOT include metadata (date, account) - the footer handles that."""
+    import json as j
+    from datetime import datetime
+    try:
+        secs = j.loads(sections) if isinstance(sections, str) else sections
+    except:
+        secs = [{"title": "Reporte", "content": sections}]
+    body = ""
+    for s in secs:
+        body += f"<h2 class='section-title'>{s.get('title','')}</h2>\n"
+        body += f"<div class='card'>{s.get('content','')}</div>\n"
+        for cmd in s.get('commands', []):
+            body += f"<div class='code-wrapper'><code>{cmd}</code><button class='copy-btn' onclick='copyCode(this)'><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='9' y='9' width='13' height='13' rx='2'/><path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'/></svg>Copiar</button></div>\n"
+    html = HTML_TEMPLATE.format(title=title, content=body, date=datetime.now().strftime('%Y-%m-%d %H:%M'))
+    key = f"reports/{datetime.now().strftime('%Y%m%d%H%M%S')}-{title.replace(' ','-')[:50]}.html"
+    s3 = aws('s3')
+    s3.put_object(Bucket=UPLOADS_BUCKET, Key=key, Body=html.encode('utf-8'), ContentType='text/html')
+    url = s3.generate_presigned_url('get_object', Params={'Bucket': UPLOADS_BUCKET, 'Key': key}, ExpiresIn=86400)
+    return f"Reporte generado: [{title}]({url})"
 
 # --- boto3 tools ---
 @tool
@@ -188,8 +280,6 @@ def get_cost_summary(days: int = 30, service_filter: str = '') -> dict:
     items.sort(key=lambda x: x['cost'], reverse=True)
     return {'items': items[:25], 'total': round(sum(i['cost'] for i in items), 2), 'period': f'{start} to {end}', 'filter': service_filter or 'all services'}
 
-BOTO3_TOOLS = [fetch_aws_pricing_page, list_s3_buckets, list_s3_objects, describe_ec2_instances, describe_cloudwatch_alarms, get_cloudwatch_metrics, lookup_cloudtrail_events, list_lambda_functions, get_cost_summary]
-
 @tool
 def list_eks_clusters() -> dict:
     """List all EKS clusters in the account with their status and version."""
@@ -214,7 +304,66 @@ def describe_eks_cluster(cluster_name: str) -> dict:
     addons = eks.list_addons(clusterName=cluster_name)['addons']
     return {'cluster': {'name': c['name'], 'status': c['status'], 'version': c['version'], 'platformVersion': c.get('platformVersion',''), 'vpcConfig': c.get('resourcesVpcConfig',{})}, 'nodegroups': nodegroups, 'addons': addons}
 
-BOTO3_TOOLS = [fetch_aws_pricing_page, list_s3_buckets, list_s3_objects, describe_ec2_instances, describe_cloudwatch_alarms, get_cloudwatch_metrics, lookup_cloudtrail_events, list_lambda_functions, get_cost_summary, list_eks_clusters, describe_eks_cluster]
+@tool
+def list_waf_web_acls() -> dict:
+    """List all AWS WAF Web ACLs (regional and CloudFront) with their rules and associated resources."""
+    waf = boto3.client('wafv2', region_name=REGION)
+    results = []
+    for scope in ['REGIONAL', 'CLOUDFRONT']:
+        try:
+            r = waf.list_web_acls(Scope=scope)
+            for acl in r.get('WebACLs', []):
+                detail = waf.get_web_acl(Name=acl['Name'], Scope=scope, Id=acl['Id'])['WebACL']
+                rules = [{'name': rule['Name'], 'priority': rule['Priority'], 'action': list(rule.get('Action', {}).keys()) or ['override']} for rule in detail.get('Rules', [])]
+                results.append({'name': acl['Name'], 'id': acl['Id'], 'scope': scope, 'rules_count': len(rules), 'rules': rules[:10], 'default_action': list(detail.get('DefaultAction', {}).keys())})
+        except Exception as e:
+            if 'WAFNonexistentItemException' not in str(e):
+                results.append({'scope': scope, 'error': str(e)})
+    return {'web_acls': results, 'count': len(results)}
+
+@tool
+def check_public_s3_buckets() -> dict:
+    """Check all S3 buckets for public access settings, encryption, and versioning status."""
+    s3c = boto3.client('s3', region_name=REGION)
+    s3control = boto3.client('s3control', region_name=REGION)
+    buckets = s3c.list_buckets()['Buckets']
+    results = []
+    for b in buckets[:30]:
+        name = b['Name']
+        info = {'name': name}
+        try:
+            pa = s3c.get_public_access_block(Bucket=name)['PublicAccessBlockConfiguration']
+            info['public_access_blocked'] = all(pa.values())
+        except: info['public_access_blocked'] = False
+        try:
+            enc = s3c.get_bucket_encryption(Bucket=name)
+            info['encrypted'] = True
+        except: info['encrypted'] = False
+        try:
+            ver = s3c.get_bucket_versioning(Bucket=name)
+            info['versioning'] = ver.get('Status', 'Disabled')
+        except: info['versioning'] = 'Unknown'
+        results.append(info)
+    at_risk = [r for r in results if not r.get('public_access_blocked') or not r.get('encrypted')]
+    return {'buckets': results, 'total': len(results), 'at_risk': len(at_risk)}
+
+@tool
+def check_rds_security() -> dict:
+    """Check RDS instances for public accessibility, encryption, and backup configuration."""
+    rds = boto3.client('rds', region_name=REGION)
+    instances = rds.describe_db_instances().get('DBInstances', [])
+    results = []
+    for db in instances:
+        results.append({
+            'identifier': db['DBInstanceIdentifier'], 'engine': db['Engine'], 'status': db['DBInstanceStatus'],
+            'publicly_accessible': db.get('PubliclyAccessible', False), 'encrypted': db.get('StorageEncrypted', False),
+            'multi_az': db.get('MultiAZ', False), 'backup_retention': db.get('BackupRetentionPeriod', 0),
+            'deletion_protection': db.get('DeletionProtection', False)
+        })
+    at_risk = [r for r in results if r['publicly_accessible'] or not r['encrypted']]
+    return {'instances': results, 'total': len(results), 'at_risk': len(at_risk)}
+
+BOTO3_TOOLS = [generate_html_report, fetch_aws_pricing_page, list_s3_buckets, list_s3_objects, describe_ec2_instances, describe_cloudwatch_alarms, get_cloudwatch_metrics, lookup_cloudtrail_events, list_lambda_functions, get_cost_summary, list_eks_clusters, describe_eks_cluster, list_waf_web_acls, check_public_s3_buckets, check_rds_security]
 
 # --- AgentCore Memory ---
 def get_memory_session(actor_id):
