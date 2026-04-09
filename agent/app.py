@@ -52,6 +52,7 @@ BEDROCK PRICING REFERENCE (us-east-1, on-demand, per 1M tokens):
 Use this reference when tools cannot find Bedrock pricing. Cite the source as "Amazon Bedrock Pricing page (aws.amazon.com/bedrock/pricing)".
 ROLES: Users have roles (Operator or Viewer). Viewers can only read.
 RESPONSE RULES: NEVER generate example user messages or prompts in your response. NEVER simulate what the user might say next. NEVER generate text prefixed with "User:" or "Hola," as if you were the user. Your response ends after YOUR answer. Do not continue the conversation beyond your single response.
+COMPLEX QUERIES: When a user asks for a broad analysis (e.g. "analyze all security issues"), focus on the most critical findings first and limit tool calls to 5-8 maximum. Summarize what you found and offer to dive deeper into specific areas. Do NOT try to call every available tool in a single response.
 You MUST respond in {LANG_NAMES.get(LANGUAGE, 'English')}."""
 
 # --- Lazy-init boto3 clients ---
@@ -222,6 +223,23 @@ def save_to_memory(session, user_text, assistant_text):
         logger.warning(f"Memory save error: {e}")
 
 # --- Agent creation ---
+LOCAL_MCP_SERVERS = [
+    ("security", "awslabs.well_architected_security_mcp_server.server"),
+    ("network", "awslabs.aws_network_mcp_server.server"),
+]
+
+def _mcp_env():
+    """Create env dict for local MCP server subprocesses."""
+    env = {k: v for k, v in os.environ.items()}
+    env["FASTMCP_LOG_LEVEL"] = "ERROR"
+    env["AWS_DEFAULT_REGION"] = os.environ.get("AWS_REGION", "us-east-1")
+    aws_dir = "/tmp/.aws"
+    os.makedirs(aws_dir, exist_ok=True)
+    with open(f"{aws_dir}/config", "w") as f:
+        f.write(f"[default]\nregion = {env['AWS_DEFAULT_REGION']}\n")
+    env["AWS_CONFIG_FILE"] = f"{aws_dir}/config"
+    return env
+
 def create_agent(token=None):
     model = BedrockModel(model_id=MODEL_ID, streaming=False)
     all_tools = list(BOTO3_TOOLS)
@@ -236,29 +254,21 @@ def create_agent(token=None):
             logger.info(f"Gateway MCP tools loaded: {len(all_tools) - len(BOTO3_TOOLS)}")
         except Exception as e:
             logger.warning(f"Gateway MCP failed: {e}")
-    # Local MCP: well-architected-security
-    try:
-        sec_env = {k: v for k, v in os.environ.items()}
-        sec_env["FASTMCP_LOG_LEVEL"] = "ERROR"
-        sec_env["AWS_DEFAULT_REGION"] = os.environ.get("AWS_REGION", "us-east-1")
-        # Create a minimal AWS config with a default profile so the MCP server
-        # uses the container's IAM role credentials instead of failing
-        aws_dir = "/tmp/.aws"
-        os.makedirs(aws_dir, exist_ok=True)
-        with open(f"{aws_dir}/config", "w") as f:
-            f.write(f"[default]\nregion = {sec_env['AWS_DEFAULT_REGION']}\n")
-        sec_env["AWS_CONFIG_FILE"] = f"{aws_dir}/config"
-        sec = MCPClient(lambda: stdio_client(StdioServerParameters(
-            command="python", args=["-m", "awslabs.well_architected_security_mcp_server.server"],
-            env=sec_env
-        )))
-        sec.__enter__()
-        sec_tools = sec.list_tools_sync()
-        all_tools.extend(sec_tools)
-        mcp_clients.append(sec)
-        logger.info(f"Security MCP tools loaded: {[t.tool_name if hasattr(t,'tool_name') else str(t) for t in sec_tools]}")
-    except Exception as e:
-        logger.warning(f"Security MCP failed: {e}")
+    # Local MCP servers
+    env = _mcp_env()
+    for name, module in LOCAL_MCP_SERVERS:
+        try:
+            m = module  # capture for lambda
+            c = MCPClient(lambda m=m: stdio_client(StdioServerParameters(
+                command="python", args=["-m", m], env=env
+            )))
+            c.__enter__()
+            tools = c.list_tools_sync()
+            all_tools.extend(tools)
+            mcp_clients.append(c)
+            logger.info(f"{name} MCP: {len(tools)} tools loaded")
+        except Exception as e:
+            logger.warning(f"{name} MCP failed: {e}")
     return Agent(model=model, tools=all_tools, system_prompt=SYSTEM), mcp_clients
 
 # --- Attachment handling ---

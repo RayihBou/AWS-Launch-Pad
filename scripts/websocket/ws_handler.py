@@ -1,4 +1,5 @@
 import json, os, boto3, re, time, uuid, logging, base64
+from threading import Thread, Event
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -30,6 +31,34 @@ def save_history(uid, conv_id, msgs, title=None):
         ddb.update_item(Key={'userId': uid, 'conversationId': conv_id}, UpdateExpression=expr, ExpressionAttributeValues=vals)
     except Exception as e:
         logger.error(f"Save error: {e}")
+
+PROGRESS_MESSAGES = [
+    'Conectando con herramientas de AWS...',
+    'Consultando servicios de tu cuenta...',
+    'Recopilando informacion...',
+    'Procesando resultados...',
+    'Generando respuesta detallada...',
+    'Aun trabajando, consulta compleja...',
+    'Casi listo, finalizando analisis...',
+]
+
+def heartbeat(domain, stage, connection_id, stop_event):
+    """Send progress messages every 5s until stop_event is set."""
+    # Create own client (boto3 clients aren't thread-safe)
+    client = boto3.client('apigatewaymanagementapi', endpoint_url=f'https://{domain}/{stage}')
+    i = 0
+    while not stop_event.wait(5):
+        msg = PROGRESS_MESSAGES[min(i, len(PROGRESS_MESSAGES) - 1)]
+        try:
+            client.post_to_connection(
+                ConnectionId=connection_id,
+                Data=json.dumps({'type': 'status', 'message': msg}).encode()
+            )
+            logger.info(f"Heartbeat sent: {msg}")
+        except Exception as e:
+            logger.error(f"Heartbeat error: {e}")
+            break
+        i += 1
 
 def send_to_client(api_client, connection_id, data):
     try:
@@ -102,12 +131,21 @@ def handler(event, context):
 
             send_to_client(api_client, connection_id, {'type': 'status', 'message': 'Consultando agente y herramientas...'})
 
-            response = agentcore.invoke_agent_runtime(
-                agentRuntimeArn=RUNTIME_ARN, qualifier=QUALIFIER,
-                payload=json.dumps(agent_payload).encode(),
-            )
-            result = response.get('response', b'').read().decode() if hasattr(response.get('response', b''), 'read') else '{}'
-            assistant_text = strip_emojis(json.loads(result).get('output', {}).get('text', ''))
+            # Start heartbeat thread
+            stop = Event()
+            hb = Thread(target=heartbeat, args=(domain, stage, connection_id, stop), daemon=True)
+            hb.start()
+
+            try:
+                response = agentcore.invoke_agent_runtime(
+                    agentRuntimeArn=RUNTIME_ARN, qualifier=QUALIFIER,
+                    payload=json.dumps(agent_payload).encode(),
+                )
+                result = response.get('response', b'').read().decode() if hasattr(response.get('response', b''), 'read') else '{}'
+                assistant_text = strip_emojis(json.loads(result).get('output', {}).get('text', ''))
+            finally:
+                stop.set()
+                hb.join(timeout=2)
 
             send_to_client(api_client, connection_id, {'type': 'status', 'message': 'Guardando respuesta...'})
             history.append({'role': 'assistant', 'text': assistant_text})
@@ -120,9 +158,14 @@ def handler(event, context):
             })
         except Exception as e:
             logger.error(f"Error: {e}")
+            err_msg = str(e)
+            if 'timeout' in err_msg.lower() or 'timed out' in err_msg.lower():
+                user_msg = 'La consulta fue demasiado compleja y excedio el tiempo limite. Intenta dividirla en preguntas mas especificas, por ejemplo: "Revisa los servicios de seguridad" y luego "Analiza la configuracion de red".'
+            else:
+                user_msg = 'Error procesando la solicitud. Intenta de nuevo con una consulta mas especifica.'
             send_to_client(api_client, connection_id, {
                 'type': 'error',
-                'output': {'text': f'Error procesando la solicitud. Intenta de nuevo.'},
+                'output': {'text': user_msg},
             })
 
         return {'statusCode': 200}

@@ -71,6 +71,7 @@ export default function useChat() {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'status') {
+          console.log('WS status:', data.message);
           setStatusMessage(data.message || '');
           return;
         }

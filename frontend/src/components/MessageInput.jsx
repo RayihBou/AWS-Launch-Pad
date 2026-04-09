@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { t } from '../i18n';
 import { config } from '../config';
 import { CognitoUserPool } from 'amazon-cognito-identity-js';
@@ -30,6 +30,14 @@ export default function MessageInput({ onSend, disabled, isConnected }) {
   const [attachment, setAttachment] = useState(null); // {name, type, file, preview}
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+  }, []);
 
   const handleFile = (e) => {
     const file = e.target.files?.[0];
@@ -57,6 +65,7 @@ export default function MessageInput({ onSend, disabled, isConnected }) {
     }
     onSend(text || 'Analiza este archivo', att);
     setText('');
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
     if (attachment?.preview) URL.revokeObjectURL(attachment.preview);
     setAttachment(null);
   };
@@ -83,15 +92,16 @@ export default function MessageInput({ onSend, disabled, isConnected }) {
           </svg>
         </button>
         <input type="file" ref={fileRef} accept={ACCEPTED} onChange={handleFile} hidden />
-        <input
+        <textarea
+          ref={textareaRef}
           className="message-input__field"
-          type="text"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => { setText(e.target.value); autoResize(); }}
           onKeyDown={handleKeyDown}
           placeholder={uploading ? 'Subiendo archivo...' : t('chat.placeholder')}
           disabled={disabled || uploading}
           aria-label={t('chat.placeholder')}
+          rows={1}
         />
         <button
           className="message-input__send"
