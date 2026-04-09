@@ -1,108 +1,126 @@
 # AWS LaunchPad
 
-AI-powered virtual assistant deployable in customer AWS accounts. Built on Amazon Bedrock AgentCore with Strands Agents SDK to drive GenAI service adoption across monitoring, security, and general AWS guidance.
+AI-powered virtual assistant deployable in customer AWS accounts. Built on Amazon Bedrock AgentCore with Strands Agents SDK, MCP servers, and long-term memory to provide comprehensive AWS operations support through a conversational interface.
 
 ## Overview
 
-AWS LaunchPad provides a web-based chatbot that customers and partners can deploy in their own AWS accounts with a single `cdk deploy` command. The assistant leverages Amazon Bedrock AgentCore Runtime with MCP-based tool servers to answer AWS questions, monitor infrastructure, assess security posture, and provide controlled guidance — all through a conversational interface.
+AWS LaunchPad is a read-only cloud operations assistant that helps users monitor, analyze, and troubleshoot their AWS infrastructure. It provides security assessments, cost analysis, network diagnostics, and actionable remediation guidance with CLI commands ready to execute in AWS CloudShell.
+
+**Live demo:** https://launchpad.rayihbou.people.aws.dev
 
 ## Key Features
 
-- **AWS Knowledge:** Real-time access to latest AWS documentation, API references, best practices, and Well-Architected guidance
-- **AWS Pricing:** Accurate, real-time pricing information for all AWS services
-- **Well-Architected Security:** Security posture assessment against the Well-Architected Framework Security Pillar
-- **CloudWatch Monitoring:** Metrics, alarms, logs analysis and operational troubleshooting
-- **CloudTrail Auditing:** Event history, error analysis, action traceability and compliance
-- **Controlled Actions:** Role-based access (Viewer/Operator) with manual guidance for restricted users
+- **Security Assessment:** Well-Architected security posture analysis, GuardDuty/Security Hub/Inspector findings, WAF configuration, S3 bucket security, RDS encryption audit
+- **Cost Management:** Cost Explorer analysis, budget monitoring, Compute Optimizer recommendations, Savings Plans guidance, Free Tier tracking
+- **Network Diagnostics:** VPC analysis, security groups, NACLs, Transit Gateway, Network Firewall, flow logs, path tracing
+- **IAM Analysis:** Users, roles, policies, groups listing, permission simulation (read-only)
+- **Container Operations:** ECS clusters/services/tasks/troubleshooting, EKS clusters/nodegroups
+- **Remediation Guidance:** CLI commands with copy buttons, CloudShell instructions, estimated costs for enabling services
+- **HTML Reports:** Downloadable reports with AWS Dark Theme, console hyperlinks, copy-to-clipboard commands
+- **Long-term Memory:** Remembers user preferences and context across sessions
+- **File Attachments:** Upload images, PDFs, documents for analysis (S3 presigned URL)
+- **Multi-language:** Spanish, English, Portuguese (configurable)
 
 ## Architecture
 
-```mermaid
-graph LR
-    A[Browser] --> B[CloudFront]
-    B --> C1[WebSocket API GW<br/>Chat - No timeout]
-    B --> C2[HTTP API GW<br/>REST - History]
-    C1 --> D[Lambda WS Handler]
-    C2 --> D2[Lambda Proxy]
-    D --> E[AgentCore Runtime<br/>Strands SDK]
-    D2 --> DB[(DynamoDB v2)]
-    E --> F[Claude Sonnet 4.6<br/>Bedrock]
-    E --> G[AgentCore Gateway]
-    G --> H[5 MCP Servers]
-    E --> I[AgentCore Memory]
-    EB[EventBridge 5min] --> W[Lambda Warmup] --> E
+```
+User -> CloudFront (custom domain)
+  |-- /* -> S3 (React frontend)
+  |-- Login -> Cognito (MFA TOTP mandatory)
+        |-- Chat -> WebSocket API Gateway (Lambda Authorizer, 900s timeout)
+        |     |-- Lambda WS Handler (heartbeat progress messages)
+        |           |-- DynamoDB v2 (conversation history)
+        |           |-- S3 presigned URL (file attachments + HTML reports)
+        |           |-- AgentCore Runtime (BedrockAgentCoreApp, Docker arm64)
+        |                 |-- 15 boto3 @tools (S3, EC2, CW, CT, Lambda, CE, EKS, WAF, RDS, HTML)
+        |                 |-- 6 MCP Local servers (security, network, billing, IAM, support, ECS)
+        |                 |-- MCP Gateway -> 4 targets (knowledge, pricing, cloudwatch, cloudtrail)
+        |                 |-- AgentCore Memory (long-term facts)
+        |                 |-- Bedrock Claude Sonnet 4.6 (Converse API + multimodal)
+        |
+        |-- REST -> HTTP API Gateway (Cognito JWT auth)
+              |-- GET /upload-url, GET /conversations, GET/DELETE/PATCH /history
+
+Warmup: EventBridge (5 min) -> Lambda -> AgentCore Runtime (ping)
 ```
 
 ## Tech Stack
 
 | Component | Service |
 |-----------|--------|
-| Frontend | React + S3 + CloudFront |
+| Frontend | React + Vite + S3 + CloudFront |
 | Agent Runtime | Amazon Bedrock AgentCore Runtime (Docker arm64) |
-| Agent Framework | Strands Agents SDK |
+| Agent Framework | Strands Agents SDK + BedrockAgentCoreApp |
 | Model | Claude Sonnet 4.6 (configurable) |
-| Tools | AgentCore Gateway + 5 MCP Servers + 8 boto3 tools |
-| Chat API | WebSocket API Gateway (no timeout limit) |
+| MCP Local | 6 servers: security, network, billing, IAM (readonly), support, ECS |
+| MCP Gateway | 4 targets: aws-knowledge, pricing, cloudwatch, cloudtrail |
+| boto3 Tools | 15 tools: S3, EC2, CloudWatch, CloudTrail, Lambda, Cost Explorer, EKS, WAF, S3-security, RDS, HTML report, pricing fetch |
+| Chat API | WebSocket API Gateway (Lambda Authorizer) |
 | REST API | HTTP API Gateway (Cognito JWT auth) |
 | Auth | Amazon Cognito (MFA TOTP mandatory) |
-| Memory | AgentCore Memory (short-term + long-term) + DynamoDB v2 |
+| Memory | AgentCore Memory (long-term) + DynamoDB v2 (conversation history) |
 | Warmup | EventBridge (5 min) + Lambda ping |
-| Observability | AgentCore Observability (CloudWatch) |
 
-## Security
+## Security Design
 
-- No static credentials — all components use IAM Roles with temporary credentials (STS)
-- Cognito authentication with optional MFA and SAML/OIDC federation
-- AgentCore Policy with Cedar for fine-grained authorization of agent actions
-- Two permission levels:
-  - **Viewer:** Read-only (query metrics, view documentation, pricing lookups)
-  - **Operator:** Read + controlled actions (create alarms, enable logging, apply remediations)
-- Least privilege IAM policies per component
-- Encryption in transit (TLS 1.2+) and at rest (KMS)
-- Bedrock Guardrails for content filtering and responsible AI
-- CloudTrail audit logging for all agent-initiated API calls
-- Destructive actions require explicit user confirmation
+- **Read-only agent:** No write or destructive actions. Provides CLI commands for user to execute via CloudShell
+- **No static credentials:** All components use IAM Roles with temporary credentials
+- **Cognito MFA:** TOTP mandatory for all users
+- **Least privilege IAM:** Separate policies per MCP server and tool category
+- **MCP server protections:** IAM readonly flag, ALLOW_WRITE=false for ECS
+- **Content filtering:** Bedrock Guardrails for prompt injection, PII redaction
+- **Presigned URLs:** File attachments auto-delete after processing, reports expire in 24h
 
-## Deployment
+## Project Structure
 
-### Prerequisites
-
-- AWS CLI configured with appropriate credentials
-- Node.js 18+
-- AWS CDK CLI (`npm install -g aws-cdk`)
-
-### Quick Start
-
-```bash
-git clone git@ssh.gitlab.aws.dev:rayihbou/aws-launchpad.git
-cd aws-launchpad
-npm install
-cdk deploy
+```
+agent/              # AgentCore Runtime (Docker container)
+  app.py            # Main agent: tools, MCP servers, system prompt, HTML template
+  Dockerfile        # Python 3.12-slim + all MCP server packages
+  requirements.txt  # Dependencies (strands, bedrock-agentcore, awslabs MCP servers)
+frontend/           # React frontend
+  src/components/   # Chat, Header, Login, MessageInput, MessageList, Sidebar
+  src/hooks/        # useAuth, useWebSocket
+  src/i18n/         # en, es, pt translations
+scripts/            # Lambda handlers
+  websocket/        # ws_handler.py (heartbeat), authorizer.py
+  proxy/            # proxy_handler.py (REST API + S3 presigned URLs)
+  warmup/           # warmup_handler.py
+mcp-lambdas/        # Gateway MCP Lambda handlers
+  cloudwatch/       # CloudWatch metrics, alarms, logs
+  cloudtrail/       # Audit events
+  pricing/          # AWS Pricing API
+infra/              # CDK constructs (to be updated in Phase E)
+docs/               # Architecture diagram, cost estimation
 ```
 
-The stack outputs the application URL. Custom domain and additional parameters can be passed as CDK context:
+## Deploy Procedure (Current - Manual)
 
 ```bash
-cdk deploy \
-  -c domainName=assistant.example.com \
-  -c hostedZoneId=Z0123456789 \
-  -c zoneName=example.com \
-  -c language=en \
-  -c modelId=us.anthropic.claude-sonnet-4-20250514-v1:0
+# 1. Build and push Docker image
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ACCOUNT.dkr.ecr.us-east-1.amazonaws.com
+docker buildx build --platform linux/arm64 -t ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/launchpad-agent:latest --push agent/
+
+# 2. Update runtime (ALWAYS include ALL env vars)
+aws bedrock-agentcore-control update-agent-runtime --agent-runtime-id RUNTIME_ID \
+  --agent-runtime-artifact '{"containerConfiguration":{"containerUri":"ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/launchpad-agent:latest"}}' \
+  --environment-variables '{"LANGUAGE":"es","GATEWAY_ENDPOINT":"...","MEMORY_ID":"...","MODEL_ID":"us.anthropic.claude-sonnet-4-6","UPLOADS_BUCKET":"..."}' \
+  --region us-east-1
+
+# 3. Update endpoint to new version
+aws bedrock-agentcore-control update-agent-runtime-endpoint --agent-runtime-id RUNTIME_ID \
+  --endpoint-name default_endpoint --agent-runtime-version VERSION --region us-east-1
 ```
 
-## Development Phases
+## Development Status
 
 | Phase | Scope | Status |
 |-------|-------|--------|
-| Phase 1 (MVP) | CDK stack, Bedrock Agent + KB, CloudWatch Action Group, React chat UI | In Progress |
-| Phase 2 | Security Hub and GuardDuty Action Groups | Planned |
-| Phase 3 | Resource inventory, Cost Explorer, modernization recommendations | Planned |
-| Phase 4 | Controlled actions with confirmation, conversation history, streaming | Planned |
-
-## Future Roadmap
-
-The original LaunchPad vision includes six specialized migration agents (Assessment Automator, Discovery Assistant, Database Modernization Advisor, DR/DRP Planner, Code Modernization Advisor, Post-Migration Documentation Generator). These remain in the roadmap for future phases.
+| Phase A | Agent optimization (BedrockAgentCoreApp, Memory) | Completed |
+| Phase B | MCP Servers (security, network, billing, IAM, support, ECS, EKS) | Completed |
+| Phase C | Write actions | Retired (read-only by design) |
+| Phase D | HTML reports, auto-logout, landing page, user management | In Progress |
+| Phase E | CDK migration, architecture diagram, README, executive document | Planned |
 
 ## Author
 
