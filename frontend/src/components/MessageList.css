@@ -22,6 +22,7 @@
 .message--assistant {
   align-self: flex-start;
   align-items: flex-start;
+  max-width: 90%;
 }
 
 .message__label {
@@ -52,6 +53,7 @@
 .message--assistant .message__bubble {
   background: var(--color-background-secondary);
   color: var(--color-text-primary);
+  overflow-x: auto;
 }
 
 /* Markdown styles inside assistant bubbles */
@@ -82,9 +84,9 @@
   padding: 0;
 }
 .message--assistant .message__bubble strong { font-weight: 600; }
-.message--assistant .message__bubble table { border-collapse: collapse; margin: 8px 0; width: 100%; }
+.message--assistant .message__bubble table { border-collapse: collapse; margin: 8px 0; width: 100%; table-layout: fixed; }
 .message--assistant .message__bubble th,
-.message--assistant .message__bubble td { border: 1px solid var(--color-border); padding: 4px 8px; font-size: 0.85em; }
+.message--assistant .message__bubble td { border: 1px solid var(--color-border); padding: 4px 8px; font-size: 0.85em; word-wrap: break-word; overflow-wrap: break-word; }
 .message--assistant .message__bubble th { background: var(--color-background-tertiary); }
 .message--assistant .message__bubble a {
   color: var(--color-aws-orange);
