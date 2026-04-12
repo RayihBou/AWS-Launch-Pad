@@ -379,7 +379,7 @@ def get_memory_session(actor_id):
         from bedrock_agentcore.memory.session import MemorySessionManager
         safe_id = re.sub(r'[^a-zA-Z0-9_-]', '-', actor_id)
         mgr = MemorySessionManager(memory_id=MEMORY_ID, region_name=REGION)
-        return mgr.create_memory_session(actor_id=safe_id, session_id=f"chat-{safe_id}")
+        return mgr.create_memory_session(actor_id=safe_id, session_id=f"v2-{safe_id}")
     except Exception as e:
         logger.warning(f"Memory session error: {e}")
         return None
