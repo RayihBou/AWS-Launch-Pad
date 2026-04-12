@@ -10,8 +10,7 @@
   align-items: center;
   justify-content: center;
   padding: 40px;
-  width: 420px;
-  flex-shrink: 0;
+  flex: 1;
   background: var(--color-background-secondary);
   border-right: 1px solid var(--color-border);
 }
@@ -107,8 +106,14 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
   padding: 60px 80px;
   background: linear-gradient(160deg, #232f3e 0%, #1a252f 50%, #161d24 100%);
+}
+
+.login__hero-content {
+  max-width: 520px;
+  width: 100%;
 }
 
 .login__hero-title {
@@ -124,14 +129,12 @@
   color: var(--color-text-secondary);
   line-height: 1.6;
   margin-bottom: 40px;
-  max-width: 520px;
 }
 
 .login__categories {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  max-width: 520px;
   margin-bottom: 48px;
 }
 

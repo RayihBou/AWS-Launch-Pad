@@ -86,17 +86,19 @@ export default function Login({ onLogin, onCompleteNewPassword, onVerifyTotp, er
         </div>
       </div>
       <div className="login__hero">
-        <h1 className="login__hero-title">{t('login.heroTitle')}</h1>
-        <p className="login__hero-desc">{t('login.heroDesc')}</p>
-        <div className="login__categories">
-          {CATEGORIES.map(c => (
-            <div key={c.key} className="login__cat">
-              <div className="login__cat-icon">{ICONS[c.icon]}</div>
-              <span>{t(c.key)}</span>
-            </div>
-          ))}
+        <div className="login__hero-content">
+          <h1 className="login__hero-title">{t('login.heroTitle')}</h1>
+          <p className="login__hero-desc">{t('login.heroDesc')}</p>
+          <div className="login__categories">
+            {CATEGORIES.map(c => (
+              <div key={c.key} className="login__cat">
+                <div className="login__cat-icon">{ICONS[c.icon]}</div>
+                <span>{t(c.key)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="login__hero-footer">Powered by Amazon Bedrock AgentCore</div>
         </div>
-        <div className="login__hero-footer">Powered by Amazon Bedrock AgentCore</div>
       </div>
     </div>
   );
