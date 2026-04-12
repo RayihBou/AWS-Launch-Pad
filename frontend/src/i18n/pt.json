@@ -6,7 +6,7 @@
     "export": "Exportar conversa"
   },
   "chat": {
-    "placeholder": "Pergunte sobre seu ambiente AWS...",
+    "placeholder": "Faça sua pergunta...",
     "send": "Enviar",
     "connecting": "Conectando...",
     "connected": "Conectado",

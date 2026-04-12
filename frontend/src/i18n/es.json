@@ -7,7 +7,7 @@
     "manageUsers": "Gestionar usuarios"
   },
   "chat": {
-    "placeholder": "Consulta sobre tu entorno de AWS...",
+    "placeholder": "Escribe tu consulta...",
     "send": "Enviar",
     "connecting": "Conectando...",
     "connected": "Conectado",
