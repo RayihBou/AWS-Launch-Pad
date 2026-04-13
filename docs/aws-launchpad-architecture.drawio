@@ -1,6 +1,6 @@
 <mxfile host="Electron" libs="aws4" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.6 Chrome/144.0.7559.236 Electron/40.8.4 Safari/537.36" version="29.6.6">
   <diagram id="43c810c39a82" name="AWS LaunchPad Architecture">
-    <mxGraphModel dx="2036" dy="1496" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="800" pageHeight="800" background="#FFFFFF" math="0" shadow="0">
+    <mxGraphModel dx="2036" dy="1496" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="400" pageHeight="400" background="#FFFFFF" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -85,7 +85,7 @@
         </mxCell>
         <mxCell id="layer-923125217691" parent="0" value="Nodes" />
         <mxCell id="aws-cloud" parent="layer-923125217691" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=14;fontStyle=1;fontFamily=Helvetica;fontColor=#000000;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud_alt;strokeColor=#232F3E;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;dashed=0;" value="AWS Cloud" vertex="1">
-          <mxGeometry height="1190" width="1620" x="200" y="50" as="geometry" />
+          <mxGeometry height="1190" width="1620" x="252" y="46" as="geometry" />
         </mxCell>
         <mxCell id="cloudfront" data-svc="cloudfront" parent="aws-cloud" style="fillColor=none;strokeColor=none;container=1;collapsible=0;recursiveResize=0;pointerEvents=1;noLabel=1;" value="" vertex="1">
           <mxGeometry height="120" width="120" x="50" y="180" as="geometry" />
@@ -304,7 +304,7 @@
           <mxGeometry height="40" width="120" y="80" as="geometry" />
         </mxCell>
         <mxCell id="user" parent="layer-923125217691" style="fillColor=none;strokeColor=none;container=1;collapsible=0;recursiveResize=0;pointerEvents=1;noLabel=1;" value="" vertex="1">
-          <mxGeometry height="115" width="100" x="40" y="260" as="geometry" />
+          <mxGeometry height="115" width="100" x="92" y="256" as="geometry" />
         </mxCell>
         <mxCell id="user-icon" parent="user" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=default;verticalAlign=top;aspect=fixed;imageAspect=0;fontColor=#232F3E;strokeColor=none;image=data:image/svg+xml,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA4MCIgd2lkdGg9IjY0IiBoZWlnaHQ9IjgwIj48ZGVmcz48c3R5bGU+LmNscy0xe2ZpbGw6IzIzMkYzRTt9PC9zdHlsZT48L2RlZnM+PGNpcmNsZSBjbGFzcz0iY2xzLTEiIGN4PSIzMiIgY3k9IjE2IiByPSIxNCIvPjxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTU2LDcySDhhNCw0LDAsMCwxLTQtNGMwLTE2LjU2OSwxMi41MzYtMzAsMjgtMzBzMjgsMTMuNDMxLDI4LDMwQTQsNCwwLDAsMSw1Niw3MloiLz48L3N2Zz4=;" vertex="1">
           <mxGeometry height="78" width="60" x="20" as="geometry" />
@@ -313,7 +313,7 @@
           <mxGeometry height="30" width="100" y="85" as="geometry" />
         </mxCell>
         <mxCell id="legend-41fb6c69f502" parent="layer-923125217691" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;strokeWidth=1;fontSize=12;fontFamily=Helvetica;fontColor=#000000;fontStyle=1;verticalAlign=top;align=center;container=1;collapsible=0;recursiveResize=0;" value="Legend" vertex="1">
-          <mxGeometry height="242" width="272" x="200" y="1280" as="geometry" />
+          <mxGeometry height="242" width="272" x="252" y="1276" as="geometry" />
         </mxCell>
         <mxCell id="legend-41fb6c69f502-line-0" edge="1" parent="legend-41fb6c69f502" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=2;jumpStyle=arc;jumpSize=6;fontSize=9;fontFamily=Helvetica;fontColor=#000000;exitX=0;exitY=0.5;entryX=1;entryY=0.5;">
           <mxGeometry relative="1" as="geometry">
