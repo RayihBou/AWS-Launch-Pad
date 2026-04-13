@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 export const config = {
   agentEndpoint: import.meta.env.VITE_AGENT_ENDPOINT || 'http://localhost:8080',
   wsEndpoint: import.meta.env.VITE_WS_ENDPOINT || '',

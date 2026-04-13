@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { t } from '../i18n';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';

@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import useAuth from './hooks/useAuth';
 import useChat from './hooks/useWebSocket';
 import useIdleTimeout from './hooks/useIdleTimeout';
@@ -20,9 +22,16 @@ export default function App() {
     if (!chat.messages.length) return;
     const lines = chat.messages.map(m => {
       const label = m.role === 'user' ? 'You' : 'Assistant';
-      return `[${label}]\n${m.content}\n`;
+      return `[${label}]
+${m.content}
+`;
     });
-    const text = `AWS LaunchPad - Conversation Export\n${new Date().toLocaleString()}\n${'='.repeat(50)}\n\n${lines.join('\n')}`;
+    const text = `AWS LaunchPad - Conversation Export
+${new Date().toLocaleString()}
+${'='.repeat(50)}
+
+${lines.join('
+')}`;
     const blob = new Blob([text], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);

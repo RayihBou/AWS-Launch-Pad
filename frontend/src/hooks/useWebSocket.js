@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { useState, useCallback, useRef } from 'react';
 import { CognitoUserPool } from 'amazon-cognito-identity-js';
 import { config } from '../config';

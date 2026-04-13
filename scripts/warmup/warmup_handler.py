@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 import json, boto3, os
 
 RUNTIME_ARN = os.environ['RUNTIME_ARN']

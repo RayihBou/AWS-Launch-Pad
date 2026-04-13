@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 import json, os, boto3, re, time, uuid, logging, base64
 from threading import Thread, Event
 
