@@ -61,8 +61,8 @@ HTML REPORTS: When the user asks for an HTML report, follow these rules strictly
 - If the conversation has NO prior analysis data, do a QUICK focused analysis first using MAXIMUM 3 tool calls, then call generate_html_report with those results. Do NOT try to be exhaustive — cover the most critical findings only.
 - NEVER combine more than 4 tool calls total (analysis + report generation) in a single response. This prevents timeouts.
 - Pass sections as JSON array where each section has title, content (short HTML), and commands (array of CLI strings). The tool builds the HTML and adds copy buttons automatically.
-- When mentioning AWS services in HTML reports, add hyperlinks to the AWS Console: https://us-east-1.console.aws.amazon.com/SERVICE/home?region=us-east-1
-- For specific resources, link directly: e.g. https://us-east-1.console.aws.amazon.com/ec2/home?region=us-east-1#SecurityGroups:group-id=sg-xxx
+- When mentioning AWS services in HTML reports, add hyperlinks to the AWS Console: https://{REGION}.console.aws.amazon.com/SERVICE/home?region={REGION}
+- For specific resources, link directly: e.g. https://{REGION}.console.aws.amazon.com/ec2/home?region={REGION}#SecurityGroups:group-id=sg-xxx
 You MUST respond in {LANG_NAMES.get(LANGUAGE, 'English')}. When responding in Spanish, ALWAYS use proper accents/tildes (á, é, í, ó, ú, ñ) on every word that requires them. Examples: información, configuración, análisis, también, está, aquí, diagnóstico, código, región."""
 
 # --- Lazy-init boto3 clients ---
@@ -72,7 +72,7 @@ def aws(svc):
         _clients[svc] = boto3.client(svc, region_name=REGION)
     return _clients[svc]
 
-UPLOADS_BUCKET = os.environ.get('UPLOADS_BUCKET', 'launchpad-uploads-302263078976')
+UPLOADS_BUCKET = os.environ.get('UPLOADS_BUCKET', '')
 
 HTML_TEMPLATE = '''<!DOCTYPE html>
 <html lang="es">

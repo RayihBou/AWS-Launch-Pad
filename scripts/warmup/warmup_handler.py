@@ -2,7 +2,7 @@ import json, boto3, os
 
 RUNTIME_ARN = os.environ['RUNTIME_ARN']
 QUALIFIER = os.environ.get('QUALIFIER', 'default_endpoint')
-client = boto3.client('bedrock-agentcore', region_name='us-east-1')
+client = boto3.client('bedrock-agentcore', region_name=os.environ.get('AWS_REGION', 'us-east-1'))
 
 def handler(event, context):
     try:

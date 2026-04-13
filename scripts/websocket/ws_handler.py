@@ -4,12 +4,12 @@ from threading import Thread, Event
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-agentcore = boto3.client('bedrock-agentcore', region_name='us-east-1')
-s3 = boto3.client('s3', region_name='us-east-1')
-ddb = boto3.resource('dynamodb', region_name='us-east-1').Table('launchpad-conversations-v2')
-RUNTIME_ARN = os.environ.get('RUNTIME_ARN', '')
+agentcore = boto3.client('bedrock-agentcore', region_name=os.environ.get('AWS_REGION', 'us-east-1'))
+s3 = boto3.client('s3', region_name=os.environ.get('AWS_REGION', 'us-east-1'))
+ddb = boto3.resource('dynamodb', region_name=os.environ.get('AWS_REGION', 'us-east-1')).Table(os.environ['CONVERSATIONS_TABLE'])
+RUNTIME_ARN = os.environ['RUNTIME_ARN']
 QUALIFIER = os.environ.get('QUALIFIER', 'default_endpoint')
-UPLOADS_BUCKET = os.environ.get('UPLOADS_BUCKET', 'launchpad-uploads-302263078976')
+UPLOADS_BUCKET = os.environ['UPLOADS_BUCKET']
 MAX_HISTORY = 50
 
 def strip_emojis(text):

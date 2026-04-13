@@ -1,17 +1,19 @@
 import { Construct } from 'constructs';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 
+export interface LaunchpadAuthProps {
+  adminEmail: string;
+}
+
 export class LaunchpadAuth extends Construct {
   public readonly userPool: cognito.UserPool;
   public readonly userPoolClient: cognito.UserPoolClient;
-  public readonly viewerGroup: cognito.CfnUserPoolGroup;
-  public readonly operatorGroup: cognito.CfnUserPoolGroup;
 
-  constructor(scope: Construct, id: string) {
+  constructor(scope: Construct, id: string, props: LaunchpadAuthProps) {
     super(scope, id);
 
     this.userPool = new cognito.UserPool(this, 'UserPool', {
-      selfSignUpEnabled: true,
+      selfSignUpEnabled: false,
       signInAliases: { email: true },
       autoVerify: { email: true },
       passwordPolicy: {
@@ -29,16 +31,15 @@ export class LaunchpadAuth extends Construct {
       generateSecret: false,
     });
 
-    this.viewerGroup = new cognito.CfnUserPoolGroup(this, 'ViewerGroup', {
+    // Create initial admin user - receives temporary password via email
+    new cognito.CfnUserPoolUser(this, 'AdminUser', {
       userPoolId: this.userPool.userPoolId,
-      groupName: 'Viewer',
-      description: 'Read-only access',
-    });
-
-    this.operatorGroup = new cognito.CfnUserPoolGroup(this, 'OperatorGroup', {
-      userPoolId: this.userPool.userPoolId,
-      groupName: 'Operator',
-      description: 'Read and write access',
+      username: props.adminEmail,
+      userAttributes: [
+        { name: 'email', value: props.adminEmail },
+        { name: 'email_verified', value: 'true' },
+      ],
+      desiredDeliveryMediums: ['EMAIL'],
     });
   }
 }

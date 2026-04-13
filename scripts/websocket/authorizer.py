@@ -3,7 +3,7 @@ import json, os, base64, time, logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-COGNITO_CLIENT_ID = os.environ.get('COGNITO_CLIENT_ID', '4n7t60v90bf7s7r0us11qklolo')
+COGNITO_CLIENT_ID = os.environ['COGNITO_CLIENT_ID']
 
 def decode_jwt(token):
     try:
