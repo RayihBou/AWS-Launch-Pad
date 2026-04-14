@@ -154,13 +154,10 @@ def generate_html_report(title: str, sections: str) -> str:
         secs = [{"title": "Reporte", "content": sections}]
     body = ""
     for s in secs:
-        body += f"<h2 class='section-title'>{s.get('title','')}</h2>
-"
-        body += f"<div class='card'>{s.get('content','')}</div>
-"
+        body += f"<h2 class='section-title'>{s.get('title','')}</h2>\n"
+        body += f"<div class='card'>{s.get('content','')}</div>\n"
         for cmd in s.get('commands', []):
-            body += f"<div class='code-wrapper'><code>{cmd}</code><button class='copy-btn' onclick='copyCode(this)'><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='9' y='9' width='13' height='13' rx='2'/><path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'/></svg>Copiar</button></div>
-"
+            body += f"<div class='code-wrapper'><code>{cmd}</code><button class='copy-btn' onclick='copyCode(this)'><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='9' y='9' width='13' height='13' rx='2'/><path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'/></svg>Copiar</button></div>\n"
     html = HTML_TEMPLATE.format(title=title, content=body, date=datetime.now().strftime('%Y-%m-%d %H:%M'))
     key = f"reports/{datetime.now().strftime('%Y%m%d%H%M%S')}-{title.replace(' ','-')[:50]}.html"
     s3 = aws('s3')
@@ -396,11 +393,7 @@ def search_memories(session, query):
         records = session.search_long_term_memories(query=query, namespace_prefix="/", top_k=5)
         if records:
             facts = [str(r) for r in records[:5]]
-            return "Known facts about this user:
-" + "
-".join(facts) + "
-
-"
+            return "Known facts about this user:\n" + "\n".join(facts) + "\n\n"
     except Exception as e:
         logger.warning(f"Memory search error: {e}")
     return ""
@@ -434,9 +427,7 @@ def _mcp_env():
     aws_dir = "/tmp/.aws"
     os.makedirs(aws_dir, exist_ok=True)
     with open(f"{aws_dir}/config", "w") as f:
-        f.write(f"[default]
-region = {env['AWS_DEFAULT_REGION']}
-")
+        f.write(f"[default]\nregion = {env['AWS_DEFAULT_REGION']}\n")
     env["AWS_CONFIG_FILE"] = f"{aws_dir}/config"
     return env
 
@@ -495,11 +486,7 @@ def handle_attachment(prompt, attachment):
     # Text-based files: inject content directly into prompt
     if ext in TEXT_FORMATS or mime.startswith('text/'):
         text_content = data.decode('utf-8', errors='replace')
-        full_prompt = f"{prompt}
-
-<attached_file name=\"{raw_name}\">
-{text_content}
-</attached_file>"
+        full_prompt = f"{prompt}\n\n<attached_file name=\"{raw_name}\">\n{text_content}\n</attached_file>"
         return None, full_prompt  # Signal to use agent instead of Converse
 
     # Images: use Converse API
@@ -534,6 +521,11 @@ app = BedrockAgentCoreApp()
 @app.entrypoint
 def invoke(payload, context):
     text = payload.get('input', {}).get('text', '') or payload.get('prompt', '')
+
+    # Warmup: respond immediately without invoking the model
+    if payload.get('actor_id') == 'warmup' or text.strip().lower() == '__ping__':
+        return {'output': {'text': 'pong'}}
+
     history = payload.get('history', [])
     role = payload.get('role', 'Viewer')
     token = payload.get('token', '')
@@ -552,12 +544,7 @@ def invoke(payload, context):
                 if h.get('role') in ('user', 'assistant') and h.get('text'):
                     parts.append(f"<{h['role']}>{h['text']}</{h['role']}>")
             if parts:
-                ctx += "<conversation_history>
-" + "
-".join(parts[-10:]) + "
-</conversation_history>
-
-"
+                ctx += "<conversation_history>\n" + "\n".join(parts[-10:]) + "\n</conversation_history>\n\n"
 
         role_note = f"(User role: {role}) " if role != 'Operator' else ""
         prompt = f"{ctx}{role_note}{text}"
