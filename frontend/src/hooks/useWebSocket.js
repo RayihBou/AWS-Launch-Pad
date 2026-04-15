@@ -46,6 +46,7 @@ export default function useChat() {
 
   // WebSocket connection
   const reconnectTimer = useRef(null);
+  const keepaliveTimer = useRef(null);
   const wasConnected = useRef(false);
   const connectWs = useCallback(async () => {
     const auth = await getAuthInfo();
@@ -54,18 +55,29 @@ export default function useChat() {
 
     try {
       const ws = new WebSocket(`${config.wsEndpoint}?token=${auth.token}`);
-      ws.onopen = () => { setIsConnected(true); wasConnected.current = true; };
+      ws.onopen = () => {
+        setIsConnected(true);
+        wasConnected.current = true;
+        // Keepalive ping every 5 min to prevent API Gateway idle timeout (10 min)
+        if (keepaliveTimer.current) clearInterval(keepaliveTimer.current);
+        keepaliveTimer.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ action: 'ping' }));
+          }
+        }, 5 * 60 * 1000);
+      };
       ws.onclose = () => {
         setIsConnected(false);
         wsRef.current = null;
-        // Only reconnect if we were previously connected (not on initial failure)
+        if (keepaliveTimer.current) { clearInterval(keepaliveTimer.current); keepaliveTimer.current = null; }
+        // Reconnect with fresh token if we were previously connected
         if (wasConnected.current) {
           if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-          reconnectTimer.current = setTimeout(() => connectWs(), 5000);
+          reconnectTimer.current = setTimeout(() => connectWs(), 3000);
         }
       };
       ws.onerror = () => {};
-    ws.onmessage = (event) => {
+      ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'status') {

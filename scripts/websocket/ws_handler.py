@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: MIT-0
 import json, os, boto3, re, time, uuid, logging, base64
 from threading import Thread, Event
+from botocore.config import Config
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-agentcore = boto3.client('bedrock-agentcore', region_name=os.environ.get('AWS_REGION', 'us-east-1'))
+agentcore = boto3.client('bedrock-agentcore', region_name=os.environ.get('AWS_REGION', 'us-east-1'),
+    config=Config(read_timeout=900, connect_timeout=10, retries={'max_attempts': 0}))
 s3 = boto3.client('s3', region_name=os.environ.get('AWS_REGION', 'us-east-1'))
 ddb = boto3.resource('dynamodb', region_name=os.environ.get('AWS_REGION', 'us-east-1')).Table(os.environ['CONVERSATIONS_TABLE'])
 RUNTIME_ARN = os.environ['RUNTIME_ARN']
@@ -79,13 +81,17 @@ def handler(event, context):
         return {'statusCode': 200}
 
     if route == 'sendMessage':
+        # Keepalive ping — respond immediately without processing
+        body = json.loads(event.get('body', '{}'))
+        if body.get('action') == 'ping':
+            return {'statusCode': 200}
+
         # Get auth context from authorizer
         auth = event.get('requestContext', {}).get('authorizer', {})
         uid = auth.get('email', 'anonymous')
         token = auth.get('token', '')
 
         # Parse message
-        body = json.loads(event.get('body', '{}'))
         text = body.get('input', {}).get('text', '')
         attachment = body.get('attachment')
         conv_id = body.get('conversationId', str(uuid.uuid4()))

@@ -43,7 +43,7 @@
     "prompt2": "Muestra el resumen de costos del ultimo mes",
     "prompt3": "Lista las instancias EC2 y su estado actual",
     "prompt4": "Revisa si hay buckets S3 con acceso publico",
-    "prompt5": "Genera un reporte HTML de seguridad completo",
+    "prompt5": "Analiza la seguridad de mi cuenta y genera un reporte HTML con los hallazgos",
     "prompt6": "Muestra las alarmas de CloudWatch activas"
   },
   "sidebar": {

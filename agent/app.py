@@ -58,13 +58,40 @@ COMPLEX QUERIES: When a user asks for a broad analysis (e.g. "analyze all securi
 IAM SAFETY: IAM tools are READ-ONLY. You can list users, roles, policies, groups, and simulate permissions. You CANNOT create, delete, or modify IAM resources. If asked to make IAM changes, provide the AWS CLI commands or console steps instead.
 AWS SUPPORT: Support API requires Business or Enterprise support plan. If the support tools fail, provide the AWS CLI commands to create/manage cases instead (e.g. aws support create-case). Always suggest the appropriate severity level and category.
 REMEDIATION GUIDANCE: When security assessments find issues or disabled services, ALWAYS provide: (1) explanation of the risk, (2) the exact AWS CLI command to remediate, (3) estimated monthly cost of enabling the service using pricing tools or your knowledge (e.g. "GuardDuty: ~$4/mes por millon de eventos"), (4) console steps as alternative. Format CLI commands in code blocks ready to copy. Before any CLI commands, add this note: "Puedes ejecutar estos comandos en AWS CloudShell (icono de terminal en la barra superior de la consola AWS) o en tu terminal local con AWS CLI configurado." The user will execute them, not the agent.
-HTML REPORTS: When the user asks for an HTML report, follow these rules strictly:
+HTML REPORTS: When the user mentions "reporte", "report", "HTML", or asks to generate a document, you MUST call generate_html_report as the LAST tool call. This is mandatory — never respond with only text when a report is requested.
 - If the conversation ALREADY has analysis data from previous messages, use that data directly with generate_html_report. Do NOT call analysis tools again.
-- If the conversation has NO prior analysis data, do a QUICK focused analysis first using MAXIMUM 3 tool calls, then call generate_html_report with those results. Do NOT try to be exhaustive — cover the most critical findings only.
-- NEVER combine more than 4 tool calls total (analysis + report generation) in a single response. This prevents timeouts.
-- Pass sections as JSON array where each section has title, content (short HTML), and commands (array of CLI strings). The tool builds the HTML and adds copy buttons automatically.
+- If the conversation has NO prior analysis data, follow the PHASED REPORT STRATEGY below.
+- Pass sections as JSON array where each section has title, content (HTML with paragraphs, lists, and tables for detail), and commands (array of CLI strings). The tool builds the HTML and adds copy buttons automatically.
 - When mentioning AWS services in HTML reports, add hyperlinks to the AWS Console: https://{REGION}.console.aws.amazon.com/SERVICE/home?region={REGION}
 - For specific resources, link directly: e.g. https://{REGION}.console.aws.amazon.com/ec2/home?region={REGION}#SecurityGroups:group-id=sg-xxx
+PHASED REPORT STRATEGY for security reports (or any broad report):
+Phase 1a - Core security (max 4 calls):
+  - CheckSecurityServices (well-architected-security MCP) — security services enabled/disabled
+  - GetSecurityFindings (well-architected-security MCP) — Security Hub CSPM findings
+  - check_public_s3_buckets — S3 public access, encryption, versioning
+  - check_rds_security — RDS public access, encryption, Multi-AZ, backups
+Phase 1b - Extended security (max 3 additional calls):
+  - list_waf_web_acls — WAF Web ACLs, rules, default actions
+  - Use IAM MCP tools (list_users, get_credential_report) — users without MFA, old access keys, excessive policies
+  - Use Network MCP tools (describe_security_groups or similar) — open security groups, permissive NACLs, missing flow logs
+  Do NOT call individual services separately when a consolidated tool exists. Total max: 7 tool calls for data collection.
+Phase 2 - Generate DETAILED HTML report with generate_html_report. The report MUST include:
+  - A summary section with overall security posture score and key metrics
+  - One section per security domain analyzed (Security Services, S3, RDS, etc.)
+  - For each finding: description of the risk, affected resources, severity level, impact explanation
+  - Remediation: exact AWS CLI command ready to copy, estimated monthly cost of the fix, console steps as alternative
+  - A prioritized action plan section at the end ranking fixes by severity and effort
+  Make the report actionable and detailed — the user should be able to fix every issue using only this report.
+HANDLING DISABLED SERVICES: If CheckSecurityServices reveals that Security Hub, GuardDuty, or other services are NOT enabled:
+  - Do NOT stop the analysis. Continue with the tools that work (S3, RDS, WAF, IAM, network checks).
+  - Include a "Servicios de Seguridad No Habilitados" section in the report with the CLI commands to enable each disabled service and its estimated monthly cost.
+  - Example: "aws securityhub enable-security-hub --enable-default-standards" (~$0.001 per check)
+HANDLING LARGE ACCOUNTS: If GetSecurityFindings returns many findings:
+  - Focus ONLY on CRITICAL and HIGH severity findings.
+  - Group findings by category (e.g., "S3 Public Access", "Encryption", "Network").
+  - Include a count summary (e.g., "47 findings: 3 Critical, 12 High, 32 Medium") and detail the top 15.
+  - Do NOT try to list every finding — summarize patterns instead.
+IMPORTANT: If a tool call fails or times out, SKIP it and generate the report with whatever data you already have. Never retry a failed tool in the same request. After calling generate_html_report, include the report link in your response to the user.
 You MUST respond in {LANG_NAMES.get(LANGUAGE, 'English')}. When responding in Spanish, ALWAYS use proper accents/tildes (á, é, í, ó, ú, ñ) on every word that requires them. Examples: información, configuración, análisis, también, está, aquí, diagnóstico, código, región."""
 
 # --- Lazy-init boto3 clients ---
@@ -156,8 +183,20 @@ def generate_html_report(title: str, sections: str) -> str:
     for s in secs:
         body += f"<h2 class='section-title'>{s.get('title','')}</h2>\n"
         body += f"<div class='card'>{s.get('content','')}</div>\n"
-        for cmd in s.get('commands', []):
-            body += f"<div class='code-wrapper'><code>{cmd}</code><button class='copy-btn' onclick='copyCode(this)'><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='9' y='9' width='13' height='13' rx='2'/><path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'/></svg>Copiar</button></div>\n"
+        cmds = s.get('commands', [])
+        i = 0
+        while i < len(cmds):
+            cmd = cmds[i]
+            # Group comment lines with the next actual command
+            if cmd.strip().startswith('#') and i + 1 < len(cmds) and not cmds[i + 1].strip().startswith('#'):
+                grouped = cmd + '\n' + cmds[i + 1]
+                body += f"<div class='code-wrapper'><code>{grouped}</code><button class='copy-btn' onclick='copyCode(this)'><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='9' y='9' width='13' height='13' rx='2'/><path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'/></svg>Copiar</button></div>\n"
+                i += 2
+            elif cmd.strip() == '':
+                i += 1
+            else:
+                body += f"<div class='code-wrapper'><code>{cmd}</code><button class='copy-btn' onclick='copyCode(this)'><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='9' y='9' width='13' height='13' rx='2'/><path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'/></svg>Copiar</button></div>\n"
+                i += 1
     html = HTML_TEMPLATE.format(title=title, content=body, date=datetime.now().strftime('%Y-%m-%d %H:%M'))
     key = f"reports/{datetime.now().strftime('%Y%m%d%H%M%S')}-{title.replace(' ','-')[:50]}.html"
     s3 = aws('s3')

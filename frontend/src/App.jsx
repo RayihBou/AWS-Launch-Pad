@@ -22,16 +22,9 @@ export default function App() {
     if (!chat.messages.length) return;
     const lines = chat.messages.map(m => {
       const label = m.role === 'user' ? 'You' : 'Assistant';
-      return `[${label}]
-${m.content}
-`;
+      return `[${label}]\n${m.content}\n`;
     });
-    const text = `AWS LaunchPad - Conversation Export
-${new Date().toLocaleString()}
-${'='.repeat(50)}
-
-${lines.join('
-')}`;
+    const text = `AWS LaunchPad - Conversation Export\n${new Date().toLocaleString()}\n${'='.repeat(50)}\n\n${lines.join('\n')}`;
     const blob = new Blob([text], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);

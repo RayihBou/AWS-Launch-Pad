@@ -50,7 +50,7 @@ export class LaunchpadWebSocket extends Construct {
       memorySize: 512,
       environment: {
         RUNTIME_ARN: props.runtimeArn,
-        QUALIFIER: 'DEFAULT',
+        QUALIFIER: 'default_endpoint',
         CONVERSATIONS_TABLE: props.conversationsTableName,
         UPLOADS_BUCKET: props.uploadsBucketName,
       },
@@ -116,7 +116,7 @@ export class LaunchpadWebSocket extends Construct {
       memorySize: 128,
       environment: {
         RUNTIME_ARN: props.runtimeArn,
-        QUALIFIER: 'DEFAULT',
+        QUALIFIER: 'default_endpoint',
       },
     });
 
