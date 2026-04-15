@@ -24,7 +24,7 @@ export class LaunchpadStack extends cdk.Stack {
     super(scope, id, props);
 
     const language = props.language ?? 'en';
-    const modelId = props.modelId ?? 'us.anthropic.claude-sonnet-4-20250514-v1:0';
+    const modelId = props.modelId ?? 'us.anthropic.claude-sonnet-4-6';
 
     // Auth (Cognito + admin user)
     const auth = new LaunchpadAuth(this, 'Auth', {
