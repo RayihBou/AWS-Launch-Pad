@@ -75,13 +75,6 @@ export class LaunchpadAgentCore extends Construct {
         ],
       },
       {
-        name: 'wa-security-mcp', desc: 'Security Hub assessment',
-        tools: [
-          { name: 'get_findings', description: 'Get Security Hub findings', inputSchema: { type: 'object', properties: { severity: { type: 'string' }, max_results: { type: 'number' } }, required: [] } },
-          { name: 'list_standards', description: 'List security standards', inputSchema: { type: 'object', properties: {}, required: [] } },
-        ],
-      },
-      {
         name: 'cloudtrail-mcp', desc: 'CloudTrail audit',
         tools: [
           { name: 'lookup_events', description: 'Look up CloudTrail events', inputSchema: { type: 'object', properties: { lookup_attributes: { type: 'object' }, max_results: { type: 'number' } }, required: [] } },

@@ -52,7 +52,6 @@ export class LaunchpadStack extends cdk.Stack {
       mcpLambdas: [
         mcpLambdas.cloudwatchFn,
         mcpLambdas.pricingFn,
-        mcpLambdas.waSecurityFn,
         mcpLambdas.cloudtrailFn,
       ],
       language,

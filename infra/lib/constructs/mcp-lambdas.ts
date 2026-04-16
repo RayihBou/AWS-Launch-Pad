@@ -9,7 +9,6 @@ import * as path from 'path';
 export class McpLambdas extends Construct {
   public readonly cloudwatchFn: lambda.Function;
   public readonly pricingFn: lambda.Function;
-  public readonly waSecurityFn: lambda.Function;
   public readonly cloudtrailFn: lambda.Function;
 
   constructor(scope: Construct, id: string) {
@@ -40,17 +39,6 @@ export class McpLambdas extends Construct {
       resources: ['*'],
     }));
 
-    this.waSecurityFn = new lambda.Function(this, 'WaSecurityMcp', {
-      runtime, handler, timeout, memorySize, architecture: arch,
-      code: lambda.Code.fromAsset(path.join(__dirname, '../../../mcp-lambdas/wa-security')),
-    });
-    this.waSecurityFn.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['wellarchitected:Get*', 'wellarchitected:List*',
-                'securityhub:GetFindings', 'securityhub:DescribeStandards',
-                'guardduty:ListFindings', 'guardduty:GetFindings'],
-      resources: ['*'],
-    }));
-
     this.cloudtrailFn = new lambda.Function(this, 'CloudTrailMcp', {
       runtime, handler, timeout, memorySize, architecture: arch,
       code: lambda.Code.fromAsset(path.join(__dirname, '../../../mcp-lambdas/cloudtrail')),
@@ -62,7 +50,7 @@ export class McpLambdas extends Construct {
 
     // Grant AgentCore Gateway permission to invoke all Lambdas
     const gatewayPrincipal = new iam.ServicePrincipal('bedrock.amazonaws.com');
-    [this.cloudwatchFn, this.pricingFn, this.waSecurityFn, this.cloudtrailFn].forEach(fn => {
+    [this.cloudwatchFn, this.pricingFn, this.cloudtrailFn].forEach(fn => {
       fn.grantInvoke(gatewayPrincipal);
     });
   }
