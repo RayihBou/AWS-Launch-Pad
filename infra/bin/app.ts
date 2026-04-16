@@ -19,6 +19,7 @@ new LaunchpadStack(app, 'LaunchPadStack', {
   domainName: app.node.tryGetContext('domainName'),
   hostedZoneId: app.node.tryGetContext('hostedZoneId'),
   zoneName: app.node.tryGetContext('zoneName'),
+  enableCrossAccount: app.node.tryGetContext('enableCrossAccount') === 'true',
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,

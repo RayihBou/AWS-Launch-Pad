@@ -17,6 +17,7 @@ export interface LaunchpadStackProps extends cdk.StackProps {
   domainName?: string;
   hostedZoneId?: string;
   zoneName?: string;
+  enableCrossAccount?: boolean;
 }
 
 export class LaunchpadStack extends cdk.Stack {
@@ -57,6 +58,7 @@ export class LaunchpadStack extends cdk.Stack {
       language,
       modelId,
       uploadsBucket: apiProxy.uploadsBucket.bucketName,
+      enableCrossAccount: props.enableCrossAccount,
     });
 
     // WebSocket (WS API, Authorizer, Handler, Warmup)

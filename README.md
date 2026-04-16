@@ -58,6 +58,7 @@ cdk deploy -c adminEmail=you@company.com
 | `domainName` | No | — | Custom domain (e.g., `launchpad.example.com`) |
 | `hostedZoneId` | No | — | Route 53 Hosted Zone ID for custom domain |
 | `zoneName` | No | — | Route 53 zone name for custom domain |
+| `enableCrossAccount` | No | `false` | Enable multi-account visibility for AWS Organizations |
 
 Example with all options:
 
@@ -68,6 +69,40 @@ cdk deploy \
   -c domainName=launchpad.example.com \
   -c hostedZoneId=Z0123456789ABC
 ```
+
+### Multi-Account Visibility (optional)
+
+For partners or teams managing multiple AWS accounts under an AWS Organization, LaunchPad can query resources across all linked accounts from a single deployment in the payer/management account.
+
+**Enable cross-account:**
+
+```bash
+cdk deploy -c adminEmail=admin@company.com -c enableCrossAccount=true
+```
+
+**What this adds:**
+- `sts:AssumeRole` and `organizations:List*` permissions to the agent's IAM role
+- Three new tools: `list_organization_accounts`, `assume_role`, `generate_cross_account_setup`
+- System prompt rules for cross-account context awareness
+
+**Setup linked accounts:**
+
+After deploying, ask the agent: *"I need to access my other accounts"*. The agent will:
+1. List all accounts in your organization
+2. Generate a CloudFormation template that creates a `LaunchPadReadOnlyRole` in each linked account
+3. Provide CLI commands to deploy individually or via StackSet (all accounts at once)
+
+The generated role grants `ReadOnlyAccess` and trusts only the LaunchPad runtime role in the payer account.
+
+**Usage:**
+
+```
+"What accounts do I have?"           → Lists all accounts with access status
+"Check EC2 in account 111222333444"  → AssumeRole + describe instances
+"Generate a security report for the Production account" → Cross-account analysis + HTML report
+```
+
+When cross-account is not enabled, the agent works exclusively with the local account (default behavior).
 
 ### First login
 

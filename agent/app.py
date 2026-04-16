@@ -1,7 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 """AWS LaunchPad Agent - BedrockAgentCoreApp + Strands SDK + MCP Gateway + boto3 tools."""
-import os, re, logging, base64
+import os, re, logging, base64, time
 from datetime import datetime, timedelta
 
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
@@ -95,11 +95,41 @@ IMPORTANT: If a tool call fails or times out, SKIP it and generate the report wi
 You MUST respond in {LANG_NAMES.get(LANGUAGE, 'English')}. When responding in Spanish, ALWAYS use proper accents/tildes (á, é, í, ó, ú, ñ) on every word that requires them. Examples: información, configuración, análisis, también, está, aquí, diagnóstico, código, región."""
 
 # --- Lazy-init boto3 clients ---
+ENABLE_CROSS_ACCOUNT = os.environ.get('ENABLE_CROSS_ACCOUNT', 'false').lower() == 'true'
+if ENABLE_CROSS_ACCOUNT:
+    SYSTEM += """
+CROSS-ACCOUNT: This deployment has multi-account visibility enabled.
+- You can list all accounts in the AWS Organization with list_organization_accounts.
+- To access resources in another account, first call assume_role with the account_id. All subsequent tool calls will use that account's credentials automatically.
+- If the user asks about a specific account, call assume_role first, then use the regular tools (list_s3_buckets, describe_ec2_instances, etc.).
+- If the user asks a general question without specifying an account, use the local account (do NOT call assume_role).
+- If assume_role fails because the role doesn't exist, offer to generate the setup script with generate_cross_account_setup.
+- Always indicate which account the results are from in your response (e.g., "En la cuenta 111222333444 (Produccion):").
+- After finishing with a cross-account query, the next query will continue using that account unless the user asks about a different one or the local account."""
+
 _clients = {}
 def aws(svc):
     if svc not in _clients:
         _clients[svc] = boto3.client(svc, region_name=REGION)
     return _clients[svc]
+
+# Cross-account: cached credentials from assume_role
+_cross_account_creds = {}
+_active_account = None
+
+def aws_for(svc):
+    """Get boto3 client — uses cross-account creds if an account is active, otherwise local."""
+    if _active_account and _active_account in _cross_account_creds:
+        creds = _cross_account_creds[_active_account]
+        if creds['expiry'] > time.time():
+            key = f"{svc}:{_active_account}"
+            if key not in _clients:
+                _clients[key] = boto3.client(svc, region_name=REGION,
+                    aws_access_key_id=creds['AccessKeyId'],
+                    aws_secret_access_key=creds['SecretAccessKey'],
+                    aws_session_token=creds['SessionToken'])
+            return _clients[key]
+    return aws(svc)
 
 UPLOADS_BUCKET = os.environ.get('UPLOADS_BUCKET', '')
 
@@ -244,7 +274,7 @@ def fetch_aws_pricing_page(url: str) -> str:
 @tool
 def list_s3_buckets() -> dict:
     """List all S3 buckets in the AWS account."""
-    r = aws('s3').list_buckets()
+    r = aws_for('s3').list_buckets()
     return {'buckets': [{'Name': b['Name'], 'Created': b['CreationDate'].isoformat()} for b in r['Buckets']], 'count': len(r['Buckets'])}
 
 @tool
@@ -252,13 +282,13 @@ def list_s3_objects(bucket: str, prefix: str = '') -> dict:
     """List objects in an S3 bucket (first 20)."""
     params = {'Bucket': bucket, 'MaxKeys': 20}
     if prefix: params['Prefix'] = prefix
-    r = aws('s3').list_objects_v2(**params)
+    r = aws_for('s3').list_objects_v2(**params)
     return {'objects': [{'Key': o['Key'], 'Size': o['Size'], 'LastModified': o['LastModified'].isoformat()} for o in r.get('Contents', [])], 'count': r.get('KeyCount', 0)}
 
 @tool
 def describe_ec2_instances() -> dict:
     """List EC2 instances with state, type, and IPs."""
-    r = aws('ec2').describe_instances()
+    r = aws_for('ec2').describe_instances()
     instances = []
     for res in r['Reservations']:
         for i in res['Instances']:
@@ -269,7 +299,7 @@ def describe_ec2_instances() -> dict:
 @tool
 def describe_cloudwatch_alarms() -> dict:
     """List CloudWatch alarms and their states."""
-    r = aws('cloudwatch').describe_alarms(MaxRecords=50)
+    r = aws_for('cloudwatch').describe_alarms(MaxRecords=50)
     return {'alarms': [{'Name': a['AlarmName'], 'State': a['StateValue'], 'Metric': a.get('MetricName', '-')} for a in r['MetricAlarms']], 'count': len(r['MetricAlarms'])}
 
 @tool
@@ -280,7 +310,7 @@ def get_cloudwatch_metrics(namespace: str, metric_name: str, dimension_name: str
     params = {'Namespace': namespace, 'MetricName': metric_name, 'StartTime': start.isoformat(), 'EndTime': end.isoformat(), 'Period': 300, 'Statistics': ['Average', 'Maximum', 'Minimum']}
     if dimension_name and dimension_value:
         params['Dimensions'] = [{'Name': dimension_name, 'Value': dimension_value}]
-    r = aws('cloudwatch').get_metric_statistics(**params)
+    r = aws_for('cloudwatch').get_metric_statistics(**params)
     points = sorted(r['Datapoints'], key=lambda x: x['Timestamp'])
     return {'datapoints': [{'Time': p['Timestamp'].isoformat(), 'Avg': round(p.get('Average', 0), 2), 'Max': round(p.get('Maximum', 0), 2)} for p in points[-10:]], 'count': len(points)}
 
@@ -294,13 +324,13 @@ def lookup_cloudtrail_events(event_name: str = '', username: str = '', hours: in
     if event_name: attrs.append({'AttributeKey': 'EventName', 'AttributeValue': event_name})
     if username: attrs.append({'AttributeKey': 'Username', 'AttributeValue': username})
     if attrs: params['LookupAttributes'] = attrs
-    r = aws('cloudtrail').lookup_events(**params)
+    r = aws_for('cloudtrail').lookup_events(**params)
     return {'events': [{'Time': e['EventTime'].isoformat(), 'Name': e['EventName'], 'User': e.get('Username', '-'), 'Source': e['EventSource']} for e in r['Events']], 'count': len(r['Events'])}
 
 @tool
 def list_lambda_functions() -> dict:
     """List Lambda functions with runtime and memory."""
-    r = aws('lambda').list_functions(MaxItems=50)
+    r = aws_for('lambda').list_functions(MaxItems=50)
     return {'functions': [{'Name': f['FunctionName'], 'Runtime': f.get('Runtime', '-'), 'Memory': f['MemorySize'], 'Timeout': f['Timeout']} for f in r['Functions']], 'count': len(r['Functions'])}
 
 @tool
@@ -314,7 +344,7 @@ def get_cost_summary(days: int = 30, service_filter: str = '') -> dict:
         params['GroupBy'] = [{'Type': 'DIMENSION', 'Key': 'USAGE_TYPE'}]
     else:
         params['GroupBy'] = [{'Type': 'DIMENSION', 'Key': 'SERVICE'}]
-    r = aws('ce').get_cost_and_usage(**params)
+    r = aws_for('ce').get_cost_and_usage(**params)
     items = []
     for group in r.get('ResultsByTime', []):
         for g in group.get('Groups', []):
@@ -330,7 +360,7 @@ def get_cost_summary(days: int = 30, service_filter: str = '') -> dict:
 @tool
 def list_eks_clusters() -> dict:
     """List all EKS clusters in the account with their status and version."""
-    eks = boto3.client('eks', region_name=REGION)
+    eks = aws_for('eks')
     names = eks.list_clusters()['clusters']
     clusters = []
     for n in names:
@@ -341,7 +371,7 @@ def list_eks_clusters() -> dict:
 @tool
 def describe_eks_cluster(cluster_name: str) -> dict:
     """Get detailed info about an EKS cluster including nodegroups and addons."""
-    eks = boto3.client('eks', region_name=REGION)
+    eks = aws_for('eks')
     c = eks.describe_cluster(name=cluster_name)['cluster']
     ngs = eks.list_nodegroups(clusterName=cluster_name)['nodegroups']
     nodegroups = []
@@ -354,7 +384,7 @@ def describe_eks_cluster(cluster_name: str) -> dict:
 @tool
 def list_waf_web_acls() -> dict:
     """List all AWS WAF Web ACLs (regional and CloudFront) with their rules and associated resources."""
-    waf = boto3.client('wafv2', region_name=REGION)
+    waf = aws_for('wafv2')
     results = []
     for scope in ['REGIONAL', 'CLOUDFRONT']:
         try:
@@ -371,8 +401,8 @@ def list_waf_web_acls() -> dict:
 @tool
 def check_public_s3_buckets() -> dict:
     """Check all S3 buckets for public access settings, encryption, and versioning status."""
-    s3c = boto3.client('s3', region_name=REGION)
-    s3control = boto3.client('s3control', region_name=REGION)
+    s3c = aws_for('s3')
+    s3control = aws_for('s3control')
     buckets = s3c.list_buckets()['Buckets']
     results = []
     for b in buckets[:30]:
@@ -397,7 +427,7 @@ def check_public_s3_buckets() -> dict:
 @tool
 def check_rds_security() -> dict:
     """Check RDS instances for public accessibility, encryption, and backup configuration."""
-    rds = boto3.client('rds', region_name=REGION)
+    rds = aws_for('rds')
     instances = rds.describe_db_instances().get('DBInstances', [])
     results = []
     for db in instances:
@@ -410,7 +440,93 @@ def check_rds_security() -> dict:
     at_risk = [r for r in results if r['publicly_accessible'] or not r['encrypted']]
     return {'instances': results, 'total': len(results), 'at_risk': len(at_risk)}
 
+# --- Cross-Account Tools (only registered when ENABLE_CROSS_ACCOUNT=true) ---
+@tool
+def list_organization_accounts() -> dict:
+    """List all AWS accounts in the organization. Shows account ID, name, email, status, and whether LaunchPad cross-account role is configured."""
+    global _active_account
+    _active_account = None
+    try:
+        org = aws('organizations')
+        accounts = []
+        paginator = org.get_paginator('list_accounts')
+        for page in paginator.paginate():
+            accounts.extend(page['Accounts'])
+        results = []
+        sts = aws('sts')
+        caller = sts.get_caller_identity()
+        local_account = caller['Account']
+        for a in accounts:
+            info = {'id': a['Id'], 'name': a['Name'], 'email': a['Email'], 'status': a['Status']}
+            if a['Id'] == local_account:
+                info['access'] = 'local (this account)'
+            else:
+                try:
+                    sts.assume_role(RoleArn=f"arn:aws:iam::{a['Id']}:role/LaunchPadReadOnlyRole", RoleSessionName='access-check', DurationSeconds=900)
+                    info['access'] = 'ready'
+                except:
+                    info['access'] = 'not configured'
+            results.append(info)
+        return {'accounts': results, 'total': len(results), 'local_account': local_account}
+    except Exception as e:
+        return {'error': str(e), 'hint': 'This account may not be the management account of an AWS Organization.'}
+
+@tool
+def assume_role(account_id: str, role_name: str = 'LaunchPadReadOnlyRole') -> dict:
+    """Assume a cross-account role to access resources in another AWS account. Credentials are cached for 1 hour."""
+    global _active_account
+    try:
+        sts = aws('sts')
+        resp = sts.assume_role(RoleArn=f"arn:aws:iam::{account_id}:role/{role_name}", RoleSessionName='launchpad-cross', DurationSeconds=3600)
+        creds = resp['Credentials']
+        _cross_account_creds[account_id] = {
+            'AccessKeyId': creds['AccessKeyId'], 'SecretAccessKey': creds['SecretAccessKey'],
+            'SessionToken': creds['SessionToken'], 'expiry': time.time() + 3500
+        }
+        # Clear cached clients for this account so they get recreated with new creds
+        for k in list(_clients.keys()):
+            if f":{account_id}" in k:
+                del _clients[k]
+        _active_account = account_id
+        return {'status': 'success', 'account_id': account_id, 'role': role_name, 'expires_in': '1 hour'}
+    except Exception as e:
+        return {'error': str(e), 'hint': f'Role {role_name} may not exist in account {account_id}. Use generate_cross_account_setup to create it.'}
+
+@tool
+def generate_cross_account_setup(payer_account_id: str = '') -> str:
+    """Generate CloudFormation template and CLI commands to set up cross-account access role in linked accounts."""
+    if not payer_account_id:
+        try:
+            payer_account_id = aws('sts').get_caller_identity()['Account']
+        except:
+            payer_account_id = 'PAYER_ACCOUNT_ID'
+    template = f"""AWSTemplateFormatVersion: '2010-09-09'
+Description: LaunchPad read-only cross-account role
+
+Resources:
+  LaunchPadReadOnlyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: LaunchPadReadOnlyRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: arn:aws:iam::{payer_account_id}:role/LaunchpadRuntimeRole
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/ReadOnlyAccess"""
+    single_cmd = "aws cloudformation deploy --template-file launchpad-role.yaml --stack-name LaunchPadAccess --capabilities CAPABILITY_NAMED_IAM"
+    stackset_cmds = f"""# Deploy to all accounts via StackSet (run from management account)
+aws cloudformation create-stack-set --stack-set-name LaunchPadAccess --template-body file://launchpad-role.yaml --capabilities CAPABILITY_NAMED_IAM --permission-model SERVICE_MANAGED --auto-deployment Enabled=true,RetainStacksOnAccountRemoval=false
+# Create instances in all accounts
+aws cloudformation create-stack-instances --stack-set-name LaunchPadAccess --deployment-targets OrganizationalUnitIds=YOUR_OU_ID --regions {REGION}"""
+    return f"CloudFormation Template (save as launchpad-role.yaml):\n```yaml\n{template}\n```\n\nOption A - Single account:\n```\n{single_cmd}\n```\n\nOption B - All accounts via StackSet:\n```\n{stackset_cmds}\n```"
+
 BOTO3_TOOLS = [generate_html_report, fetch_aws_pricing_page, list_s3_buckets, list_s3_objects, describe_ec2_instances, describe_cloudwatch_alarms, get_cloudwatch_metrics, lookup_cloudtrail_events, list_lambda_functions, get_cost_summary, list_eks_clusters, describe_eks_cluster, list_waf_web_acls, check_public_s3_buckets, check_rds_security]
+if ENABLE_CROSS_ACCOUNT:
+    BOTO3_TOOLS.extend([list_organization_accounts, assume_role, generate_cross_account_setup])
 
 # --- AgentCore Memory ---
 def get_memory_session(actor_id):

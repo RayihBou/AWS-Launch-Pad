@@ -15,6 +15,7 @@ export interface LaunchpadAgentCoreProps {
   language: string;
   modelId: string;
   uploadsBucket: string;
+  enableCrossAccount?: boolean;
 }
 
 export class LaunchpadAgentCore extends Construct {
@@ -113,6 +114,7 @@ export class LaunchpadAgentCore extends Construct {
         GATEWAY_ENDPOINT: this.gateway.gatewayUrl!,
         MEMORY_ID: this.memory.memoryId,
         UPLOADS_BUCKET: props.uploadsBucket,
+        ...(props.enableCrossAccount ? { ENABLE_CROSS_ACCOUNT: 'true' } : {}),
       },
     });
 
@@ -190,5 +192,19 @@ export class LaunchpadAgentCore extends Construct {
       ],
       resources: ['*'],
     }));
+
+    // Cross-account policies (only when enabled)
+    if (props.enableCrossAccount) {
+      this.runtime.addToRolePolicy(new iam.PolicyStatement({
+        sid: 'CrossAccountAssumeRole',
+        actions: ['sts:AssumeRole'],
+        resources: ['arn:aws:iam::*:role/LaunchPadReadOnlyRole'],
+      }));
+      this.runtime.addToRolePolicy(new iam.PolicyStatement({
+        sid: 'OrganizationsReadOnly',
+        actions: ['organizations:ListAccounts', 'organizations:DescribeOrganization', 'organizations:DescribeAccount'],
+        resources: ['*'],
+      }));
+    }
   }
 }

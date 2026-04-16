@@ -366,7 +366,8 @@
             Cuatro comandos para tener el asistente operativo en la cuenta del cliente:
         </p>
         <div class="code-wrapper">
-            <code>git clone https://github.com/aws-samples/aws-launchpad.git
+            <code># Despliegue estandar (cuenta unitaria)
+git clone https://github.com/aws-samples/aws-launchpad.git
 cd aws-launchpad && npm install
 cdk bootstrap
 cdk deploy -c adminEmail=admin@empresa.com -c language=es</code>
@@ -377,8 +378,18 @@ cdk deploy -c adminEmail=admin@empresa.com -c language=es</code>
                 </svg>Copiar
             </button>
         </div>
+        <div class="code-wrapper" style="margin-top: 12px;">
+            <code># Con visibilidad multi-cuenta (payer + linked accounts)
+cdk deploy -c adminEmail=admin@empresa.com -c language=es -c enableCrossAccount=true</code>
+            <button class="copy-btn" onclick="copyCode(this)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2"/>
+                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                </svg>Copiar
+            </button>
+        </div>
         <div class="cost-note">
-            Compatible con AWS CloudShell (zero instalacion local). Solo se requiere una cuenta AWS con permisos de administrador para el despliegue inicial.
+            Compatible con AWS CloudShell (zero instalacion local). Solo se requiere una cuenta AWS con permisos de administrador para el despliegue inicial. La opcion multi-cuenta permite a partners gestionar todas las cuentas de una organizacion desde un solo despliegue.
         </div>
 
     </div>
