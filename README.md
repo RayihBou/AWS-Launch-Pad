@@ -54,7 +54,7 @@ cdk deploy -c adminEmail=you@company.com
 |-----------|----------|---------|-------------|
 | `adminEmail` | Yes | — | Email for the initial admin user (receives temporary password) |
 | `language` | No | `en` | UI and agent language (`en`, `es`, `pt`) |
-| `modelId` | No | Claude Sonnet 4 | Bedrock model ID or inference profile |
+| `modelId` | No | Claude Sonnet 4.6 | Bedrock model ID or inference profile |
 | `domainName` | No | — | Custom domain (e.g., `launchpad.example.com`) |
 | `hostedZoneId` | No | — | Route 53 Hosted Zone ID for custom domain |
 | `zoneName` | No | — | Route 53 zone name for custom domain |
@@ -122,7 +122,7 @@ The solution deploys entirely within the customer's AWS account. No data leaves 
 |-----------|---------|
 | Frontend | React + Vite → S3 + CloudFront |
 | Agent | Bedrock AgentCore Runtime (Docker arm64, Strands SDK) |
-| Model | Claude Sonnet 4 via Amazon Bedrock (configurable) |
+| Model | Claude Sonnet 4.6 via Amazon Bedrock (configurable) |
 | MCP Tools | 6 local servers (stdio) + 5 Gateway targets + 15 boto3 tools |
 | Chat API | WebSocket API Gateway (Lambda Authorizer, 900s timeout) |
 | REST API | HTTP API Gateway (Cognito JWT auth) |
