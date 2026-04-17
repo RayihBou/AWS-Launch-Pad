@@ -369,7 +369,7 @@
         <h2 class="section-title">2. Despliegue Estandar (Cuenta Unitaria)</h2>
 
         <div class="text-block">
-            <p>Para organizaciones que operan con una sola cuenta AWS. Este es el flujo mas comun y el punto de partida recomendado. El proceso completo toma aproximadamente 10 a 15 minutos.</p>
+            <p>Para organizaciónes que operan con una sola cuenta AWS. Este es el flujo mas comun y el punto de partida recomendado. El proceso completo toma aproximadamente 10 a 15 minutos.</p>
         </div>
 
         <div class="topic-card">
@@ -430,14 +430,14 @@
         </div>
 
         <div class="note-box">
-            CDK despliega automaticamente los siguientes recursos: Amazon Cognito, API Gateway, CloudFront, DynamoDB, AgentCore Runtime, AgentCore Gateway, AgentCore Memory, funciones Lambda y Bedrock Guardrails.
+            CDK despliega automáticamente los siguientes recursos: Amazon Cognito, API Gateway, CloudFront, DynamoDB, AgentCore Runtime, AgentCore Gateway, AgentCore Memory, funciones Lambda y Bedrock Guardrails.
         </div>
 
         <!-- Seccion 3: Despliegue Multi-Cuenta -->
         <h2 class="section-title">3. Despliegue Multi-Cuenta (Payer + Linked Accounts)</h2>
 
         <div class="text-block">
-            <p>Para partners o equipos que administran multiples cuentas bajo AWS Organizations. Este modo permite al agente consultar recursos en todas las cuentas vinculadas desde una unica interfaz.</p>
+            <p>Para partners o equipos que administran multiples cuentas bajo AWS Organizations. Este modo permite al agente consultar recursos en todas las cuentas vinculadas desde una única interfaz.</p>
         </div>
 
         <div class="topic-card">
@@ -459,7 +459,7 @@
                 <span class="step-number">2</span>
                 <h3>Configurar Acceso a Cuentas Linked</h3>
             </div>
-            <p>Una vez desplegado, el agente genera automaticamente un template de CloudFormation con un rol ReadOnly y los comandos necesarios para desplegarlo via StackSet (todas las cuentas) o individualmente en cada cuenta linked. Consulte la seccion 7 de esta guia para el detalle completo.</p>
+            <p>Una vez desplegado, el agente genera automáticamente un template de CloudFormation con un rol ReadOnly y los comandos necesarios para desplegarlo via StackSet (todas las cuentas) o individualmente en cada cuenta linked. Consulte la sección 7 de esta guia para el detalle completo.</p>
         </div>
 
         <div class="topic-card">
@@ -467,7 +467,7 @@
                 <span class="step-number">3</span>
                 <h3>Verificar Acceso</h3>
             </div>
-            <p>Desde el chat del agente, solicite listar las cuentas de la organizacion. El agente confirmara cuales cuentas tienen el rol configurado y estan accesibles.</p>
+            <p>Desde el chat del agente, solicite listar las cuentas de la organización. El agente confirmara cuales cuentas tienen el rol configurado y estan accesibles.</p>
         </div>
 
         <!-- Seccion 4: Parametros de Configuracion -->
@@ -556,7 +556,7 @@
                 <span class="step-number">1</span>
                 <h3>Obtener Credenciales</h3>
             </div>
-            <p>Revise el correo electronico configurado en <code style="color:#3fb950">adminEmail</code>. Recibira un mensaje de Amazon Cognito con su contrasena temporal.</p>
+            <p>Revise el correo electrónico configurado en <code style="color:#3fb950">adminEmail</code>. Recibira un mensaje de Amazon Cognito con su contrasena temporal.</p>
         </div>
 
         <div class="topic-card">
@@ -610,20 +610,20 @@
         </div>
 
         <div class="note-box">
-            Todos los usuarios tienen acceso exclusivamente de lectura. El agente nunca ejecuta acciones de escritura sobre los recursos de las cuentas AWS. Este modelo de seguridad garantiza que LaunchPad es seguro para uso en entornos de produccion.
+            Todos los usuarios tienen acceso exclusivamente de lectura. El agente nunca ejecuta acciones de escritura sobre los recursos de las cuentas AWS. Este modelo de seguridad garantiza que LaunchPad es seguro para uso en entornos de producción.
         </div>
 
         <!-- Seccion 7: Configuracion Multi-Cuenta (Detalle) -->
         <h2 class="section-title">7. Configuracion Multi-Cuenta (Detalle)</h2>
 
         <div class="text-block">
-            <p>Esta seccion describe el flujo completo para habilitar el acceso a cuentas linked dentro de una organizacion de AWS. El proceso esta disenado para ser guiado por el propio agente.</p>
+            <p>Esta sección describe el flujo completo para habilitar el acceso a cuentas linked dentro de una organización de AWS. El proceso esta disenado para ser guiado por el propio agente.</p>
         </div>
 
         <div class="topic-card">
             <h3>Flujo de Configuracion</h3>
             <ul>
-                <li>El partner abre LaunchPad y solicita acceso a las otras cuentas de la organizacion</li>
+                <li>El partner abre LaunchPad y solicita acceso a las otras cuentas de la organización</li>
                 <li>El agente lista las cuentas disponibles en AWS Organizations</li>
                 <li>El agente genera un template de CloudFormation que crea el rol <code style="color:#3fb950">LaunchPadReadOnlyRole</code></li>
                 <li>El partner ejecuta el comando proporcionado en CloudShell o su terminal local</li>
@@ -633,7 +633,7 @@
 
         <div class="topic-card">
             <h3>Opcion A: StackSet (Todas las Cuentas)</h3>
-            <p>Despliega el rol en todas las cuentas de la organizacion de forma automatica. Incluye auto-deployment para cuentas que se agreguen en el futuro.</p>
+            <p>Despliega el rol en todas las cuentas de la organización de forma automática. Incluye auto-deployment para cuentas que se agreguen en el futuro.</p>
             <div class="code-wrapper">
                 <code>aws cloudformation create-stack-set \
   --stack-set-name LaunchPadAccess \
@@ -701,7 +701,7 @@
                     </tr>
                     <tr>
                         <td>Credenciales</td>
-                        <td>Temporales, 1 hora, renovacion automatica</td>
+                        <td>Temporales, 1 hora, renovación automática</td>
                     </tr>
                 </tbody>
             </table>
@@ -755,7 +755,7 @@
         <h2 class="section-title">9. Eliminacion de Recursos</h2>
 
         <div class="text-block">
-            <p>Para eliminar todos los recursos creados por LaunchPad, ejecute el siguiente comando desde el directorio del proyecto. DynamoDB y S3 se eliminan automaticamente gracias a la politica de remocion configurada en el stack (DESTROY).</p>
+            <p>Para eliminar todos los recursos creados por LaunchPad, ejecute el siguiente comando desde el directorio del proyecto. DynamoDB y S3 se eliminan automáticamente gracias a la politica de remocion configurada en el stack (DESTROY).</p>
         </div>
 
         <div class="topic-card">
