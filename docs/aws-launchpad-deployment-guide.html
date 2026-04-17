@@ -327,7 +327,7 @@
             </div>
         </div>
 
-        <!-- Seccion 1: Requisitos Previos -->
+        <!-- Sección 1: Requisitos Previos -->
         <h2 class="section-title">1. Requisitos Previos</h2>
 
         <div class="text-block">
@@ -345,7 +345,7 @@
             </div>
             <div class="info-card">
                 <div class="label">AWS CDK</div>
-                <div class="value">Bootstrapped en la cuenta y region destino</div>
+                <div class="value">Bootstrapped en la cuenta y región destino</div>
             </div>
             <div class="info-card">
                 <div class="label">Permisos</div>
@@ -355,7 +355,7 @@
 
         <div class="topic-card">
             <h3>Bootstrap de AWS CDK</h3>
-            <p>Si es la primera vez que utiliza CDK en esta cuenta/region, ejecute el siguiente comando para preparar el entorno:</p>
+            <p>Si es la primera vez que utiliza CDK en esta cuenta/región, ejecute el siguiente comando para preparar el entorno:</p>
             <div class="code-wrapper">
                 <code>cdk bootstrap</code>
                 <button class="copy-btn" onclick="copyCode(this)">
@@ -365,7 +365,7 @@
             <p>Este comando crea un bucket S3 y los recursos necesarios para que CDK pueda desplegar stacks en su cuenta.</p>
         </div>
 
-        <!-- Seccion 2: Despliegue Estandar -->
+        <!-- Sección 2: Despliegue Estandar -->
         <h2 class="section-title">2. Despliegue Estandar (Cuenta Unitaria)</h2>
 
         <div class="text-block">
@@ -430,10 +430,10 @@
         </div>
 
         <div class="note-box">
-            CDK despliega automáticamente los siguientes recursos: Amazon Cognito, API Gateway, CloudFront, DynamoDB, AgentCore Runtime, AgentCore Gateway, AgentCore Memory, funciones Lambda y Bedrock Guardrails.
+            CDK despliega automáticamente los siguientes recursos: Amazon Cognito, API Gateway, CloudFront, DynamoDB, AgentCore Runtime, AgentCore Gateway, AgentCore Memory, funciónes Lambda y Bedrock Guardrails.
         </div>
 
-        <!-- Seccion 3: Despliegue Multi-Cuenta -->
+        <!-- Sección 3: Despliegue Multi-Cuenta -->
         <h2 class="section-title">3. Despliegue Multi-Cuenta (Payer + Linked Accounts)</h2>
 
         <div class="text-block">
@@ -470,8 +470,8 @@
             <p>Desde el chat del agente, solicite listar las cuentas de la organización. El agente confirmara cuales cuentas tienen el rol configurado y estan accesibles.</p>
         </div>
 
-        <!-- Seccion 4: Parametros de Configuracion -->
-        <h2 class="section-title">4. Parametros de Configuracion</h2>
+        <!-- Sección 4: Parámetros de Configuración -->
+        <h2 class="section-title">4. Parámetros de Configuración</h2>
 
         <div class="text-block">
             <p>Todos los parámetros se pasan al comando <code style="color:#3fb950">cdk deploy</code> usando la sintaxis <code style="color:#3fb950">-c parámetro=valor</code>. Solo <code style="color:#3fb950">adminEmail</code> es obligatorio.</p>
@@ -481,7 +481,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Parametro</th>
+                        <th>Parámetro</th>
                         <th>Requerido</th>
                         <th>Default</th>
                         <th>Descripcion</th>
@@ -492,7 +492,7 @@
                         <td style="color:var(--color-text-primary);font-weight:500">adminEmail</td>
                         <td><span class="tag-required">Requerido</span></td>
                         <td>-</td>
-                        <td>Email del administrador inicial (recibe contrasena temporal)</td>
+                        <td>Email del administrador inicial (recibe contraseña temporal)</td>
                     </tr>
                     <tr>
                         <td style="color:var(--color-text-primary);font-weight:500">language</td>
@@ -544,7 +544,7 @@
             </div>
         </div>
 
-        <!-- Seccion 5: Primer Inicio de Sesion -->
+        <!-- Sección 5: Primer Inicio de Sesion -->
         <h2 class="section-title">5. Primer Inicio de Sesion</h2>
 
         <div class="text-block">
@@ -556,7 +556,7 @@
                 <span class="step-number">1</span>
                 <h3>Obtener Credenciales</h3>
             </div>
-            <p>Revise el correo electrónico configurado en <code style="color:#3fb950">adminEmail</code>. Recibira un mensaje de Amazon Cognito con su contrasena temporal.</p>
+            <p>Revise el correo electrónico configurado en <code style="color:#3fb950">adminEmail</code>. Recibira un mensaje de Amazon Cognito con su contraseña temporal.</p>
         </div>
 
         <div class="topic-card">
@@ -564,15 +564,15 @@
                 <span class="step-number">2</span>
                 <h3>Acceder a la Aplicacion</h3>
             </div>
-            <p>Abra la URL de CloudFront que aparece en los outputs del CDK al finalizar el despliegue. Inicie sesion con su email y la contrasena temporal recibida.</p>
+            <p>Abra la URL de CloudFront que aparece en los outputs del CDK al finalizar el despliegue. Inicie sesion con su email y la contraseña temporal recibida.</p>
         </div>
 
         <div class="topic-card">
             <div class="step-header">
                 <span class="step-number">3</span>
-                <h3>Configurar Nueva Contrasena</h3>
+                <h3>Configurar Nueva Contraseña</h3>
             </div>
-            <p>El sistema le solicitara establecer una nueva contrasena segura en el primer inicio de sesion.</p>
+            <p>El sistema le solicitara establecer una nueva contraseña segura en el primer inicio de sesion.</p>
         </div>
 
         <div class="topic-card">
@@ -591,8 +591,8 @@
             <p>Una vez autenticado, puede comenzar a interactuar con el asistente de operaciónes en la nube directamente desde la interfaz de chat.</p>
         </div>
 
-        <!-- Seccion 6: Gestion de Usuarios -->
-        <h2 class="section-title">6. Gestion de Usuarios</h2>
+        <!-- Sección 6: Gestión de Usuarios -->
+        <h2 class="section-title">6. Gestión de Usuarios</h2>
 
         <div class="text-block">
             <p>LaunchPad utiliza Amazon Cognito para la gestión de identidades. El administrador tiene dos formas de agregar nuevos usuarios al sistema.</p>
@@ -613,15 +613,15 @@
             Todos los usuarios tienen acceso exclusivamente de lectura. El agente nunca ejecuta acciones de escritura sobre los recursos de las cuentas AWS. Este modelo de seguridad garantiza que LaunchPad es seguro para uso en entornos de producción.
         </div>
 
-        <!-- Seccion 7: Configuracion Multi-Cuenta (Detalle) -->
-        <h2 class="section-title">7. Configuracion Multi-Cuenta (Detalle)</h2>
+        <!-- Sección 7: Configuración Multi-Cuenta (Detalle) -->
+        <h2 class="section-title">7. Configuración Multi-Cuenta (Detalle)</h2>
 
         <div class="text-block">
             <p>Esta sección describe el flujo completo para habilitar el acceso a cuentas linked dentro de una organización de AWS. El proceso esta disenado para ser guiado por el propio agente.</p>
         </div>
 
         <div class="topic-card">
-            <h3>Flujo de Configuracion</h3>
+            <h3>Flujo de Configuración</h3>
             <ul>
                 <li>El partner abre LaunchPad y solicita acceso a las otras cuentas de la organización</li>
                 <li>El agente lista las cuentas disponibles en AWS Organizations</li>
@@ -707,8 +707,8 @@
             </table>
         </div>
 
-        <!-- Seccion 8: Estimacion de Costos -->
-        <h2 class="section-title">8. Estimacion de Costos</h2>
+        <!-- Sección 8: Estimación de Costos -->
+        <h2 class="section-title">8. Estimación de Costos</h2>
 
         <div class="text-block">
             <p>El costo de LaunchPad depende principalmente del volumen de mensajes procesados por Amazon Bedrock. La siguiente tabla muestra estimaciónes para tres niveles de uso tipicos.</p>
@@ -751,8 +751,8 @@
             Los tokens de Amazon Bedrock representan aproximadamente el 85% del costo total. Amazon Cognito es gratuito hasta 10,000 usuarios activos mensuales (MAU). Los demas servicios (API Gateway, Lambda, DynamoDB, CloudFront) operan dentro del free tier para la mayoria de los casos de uso.
         </div>
 
-        <!-- Seccion 9: Eliminacion de Recursos -->
-        <h2 class="section-title">9. Eliminacion de Recursos</h2>
+        <!-- Sección 9: Eliminación de Recursos -->
+        <h2 class="section-title">9. Eliminación de Recursos</h2>
 
         <div class="text-block">
             <p>Para eliminar todos los recursos creados por LaunchPad, ejecute el siguiente comando desde el directorio del proyecto. DynamoDB y S3 se eliminan automáticamente gracias a la politica de remocion configurada en el stack (DESTROY).</p>
@@ -766,7 +766,7 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copiar
                 </button>
             </div>
-            <p>Este comando elimina todos los recursos de AWS creados por el stack, incluyendo Cognito User Pool, API Gateway, CloudFront distribution, tablas DynamoDB, funciones Lambda y los roles IAM asociados.</p>
+            <p>Este comando elimina todos los recursos de AWS creados por el stack, incluyendo Cognito User Pool, API Gateway, CloudFront distribution, tablas DynamoDB, funciónes Lambda y los roles IAM asociados.</p>
         </div>
 
         <div class="note-box">
