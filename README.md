@@ -19,100 +19,52 @@ AWS LaunchPad is a read-only assistant that helps teams monitor, analyze, and tr
 - File attachments (images, PDFs, documents) for analysis
 - Multi-language support (English, Spanish, Portuguese)
 
-## Quick Deploy
+## Quick Start
 
 ### Prerequisites
 
-- AWS account with [Amazon Bedrock model access](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html) enabled for Claude Sonnet 4
-- Node.js 18+ and Docker installed (or use AWS CloudShell which has both)
-- AWS CDK bootstrapped in the target account/region (`cdk bootstrap`)
+- An AWS account
+- [AWS CloudShell](https://console.aws.amazon.com/cloudshell/) (recommended) or a local environment with Node.js 18+ and Docker
 
-### Deploy via CloudShell (recommended, zero local setup)
-
-Open [AWS CloudShell](https://console.aws.amazon.com/cloudshell) and run:
+### Deploy
 
 ```bash
-git clone https://github.com/aws-samples/aws-launchpad.git
-cd aws-launchpad
-npm install
-cdk bootstrap   # only needed once per account/region
-cdk deploy -c adminEmail=you@company.com
+git clone https://github.com/RayihBou/AWS-Launch-Pad.git
+cd AWS-Launch-Pad
+./setup.sh
 ```
 
-### Deploy from local machine
+The interactive setup will guide you through the configuration:
+
+1. **Admin email** - Receives the initial Cognito password
+2. **Language** - Interface language (en/es/pt)
+3. **Cross-account visibility** - Enable multi-account support
+
+### Advanced Deploy
+
+If you prefer to run CDK directly:
 
 ```bash
-git clone https://github.com/aws-samples/aws-launchpad.git
-cd aws-launchpad
 npm install
-cdk deploy -c adminEmail=you@company.com
+cd frontend && npm install && npm run build && cd ..
+cdk bootstrap
+cdk deploy -c adminEmail=admin@example.com -c language=es
 ```
-
-### Configuration options
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `adminEmail` | Yes | — | Email for the initial admin user (receives temporary password) |
-| `language` | No | `en` | UI and agent language (`en`, `es`, `pt`) |
-| `modelId` | No | Claude Sonnet 4.6 | Bedrock model ID or inference profile |
-| `domainName` | No | — | Custom domain (e.g., `launchpad.example.com`) |
-| `hostedZoneId` | No | — | Route 53 Hosted Zone ID for custom domain |
-| `zoneName` | No | — | Route 53 zone name for custom domain |
-| `enableCrossAccount` | No | `false` | Enable multi-account visibility for AWS Organizations |
+| `adminEmail` | Yes | - | Admin email for Cognito |
+| `language` | No | `en` | UI language (en/es/pt) |
+| `enableCrossAccount` | No | `false` | Multi-account visibility |
+| `domainName` | No | - | Custom domain |
+| `hostedZoneId` | No | - | Route 53 Hosted Zone ID |
+| `zoneName` | No | - | Route 53 zone name |
 
-Example with all options:
+### Post-deployment
 
-```bash
-cdk deploy \
-  -c adminEmail=admin@company.com \
-  -c language=es \
-  -c domainName=launchpad.example.com \
-  -c hostedZoneId=Z0123456789ABC
-```
-
-### Multi-Account Visibility (optional)
-
-For partners or teams managing multiple AWS accounts under an AWS Organization, LaunchPad can query resources across all linked accounts from a single deployment in the payer/management account.
-
-**Enable cross-account:**
-
-```bash
-cdk deploy -c adminEmail=admin@company.com -c enableCrossAccount=true
-```
-
-**What this adds:**
-- `sts:AssumeRole` and `organizations:List*` permissions to the agent's IAM role
-- Three new tools: `list_organization_accounts`, `assume_role`, `generate_cross_account_setup`
-- System prompt rules for cross-account context awareness
-
-**Setup linked accounts:**
-
-After deploying, ask the agent: *"I need to access my other accounts"*. The agent will:
-1. List all accounts in your organization
-2. Generate a CloudFormation template that creates a `LaunchPadReadOnlyRole` in each linked account
-3. Provide CLI commands to deploy individually or via StackSet (all accounts at once)
-
-The generated role grants `ReadOnlyAccess` and trusts only the LaunchPad runtime role in the payer account.
-
-**Usage:**
-
-```
-"What accounts do I have?"           → Lists all accounts with access status
-"Check EC2 in account 111222333444"  → AssumeRole + describe instances
-"Generate a security report for the Production account" → Cross-account analysis + HTML report
-```
-
-When cross-account is not enabled, the agent works exclusively with the local account (default behavior).
-
-### First login
-
-1. Check your email for the temporary password from Cognito
-2. Open the CloudFront URL from the CDK output
-3. Log in with your email and temporary password
-4. Set a new password and configure MFA (TOTP — Google Authenticator, Authy, etc.)
-5. Start chatting with the assistant
-
-To add more users, click the users icon in the header to open the Cognito User Pool console, or ask the agent for the CLI command.
+1. Check your email for the temporary Cognito password
+2. Open the CloudFront URL from the stack outputs
+3. Log in and set a new password + MFA (TOTP)
 
 ## Architecture
 

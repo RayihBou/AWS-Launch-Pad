@@ -9,19 +9,19 @@ const app = new cdk.App();
 
 const adminEmail = app.node.tryGetContext('adminEmail');
 if (!adminEmail) {
-  throw new Error('Required context: adminEmail. Usage: cdk deploy -c adminEmail=admin@example.com');
+  console.error('Note: adminEmail not provided. Run with: cdk deploy -c adminEmail=admin@example.com');
+} else {
+  new LaunchpadStack(app, 'LaunchPadStack', {
+    adminEmail,
+    language: app.node.tryGetContext('language') ?? 'en',
+    modelId: app.node.tryGetContext('modelId'),
+    domainName: app.node.tryGetContext('domainName'),
+    hostedZoneId: app.node.tryGetContext('hostedZoneId'),
+    zoneName: app.node.tryGetContext('zoneName'),
+    enableCrossAccount: app.node.tryGetContext('enableCrossAccount') === 'true',
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: process.env.CDK_DEFAULT_REGION,
+    },
+  });
 }
-
-new LaunchpadStack(app, 'LaunchPadStack', {
-  adminEmail,
-  language: app.node.tryGetContext('language') ?? 'en',
-  modelId: app.node.tryGetContext('modelId'),
-  domainName: app.node.tryGetContext('domainName'),
-  hostedZoneId: app.node.tryGetContext('hostedZoneId'),
-  zoneName: app.node.tryGetContext('zoneName'),
-  enableCrossAccount: app.node.tryGetContext('enableCrossAccount') === 'true',
-  env: {
-    account: process.env.CDK_DEFAULT_ACCOUNT,
-    region: process.env.CDK_DEFAULT_REGION,
-  },
-});
