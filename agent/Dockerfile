@@ -1,8 +1,8 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-# Stage 1: Download arm64 dependencies on any host architecture
-FROM python:3.12-slim AS builder
+# Stage 1: Download arm64 dependencies on native host architecture
+FROM --platform=$BUILDPLATFORM python:3.12-slim AS builder
 WORKDIR /build
 COPY requirements.txt .
 RUN pip install --no-cache-dir --target /deps \
