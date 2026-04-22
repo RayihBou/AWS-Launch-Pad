@@ -62,7 +62,7 @@ export class LaunchpadAgentCore extends Construct {
     cfnKnowledgeTarget.addPropertyOverride('CredentialProviderConfigurations', [
       {
         CredentialProviderType: 'GATEWAY_IAM_ROLE',
-        CredentialProvider: { IamCredentialProvider: {} },
+        CredentialProvider: { IamCredentialProvider: { Service: 'bedrock-agentcore' } },
       },
     ]);
 
