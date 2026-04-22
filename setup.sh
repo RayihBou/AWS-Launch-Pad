@@ -64,7 +64,7 @@ echo -e "${GREEN}[3/5] Bootstrapping CDK...${NC}"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 REGION=${AWS_DEFAULT_REGION:-${AWS_REGION:-us-east-1}}
 echo "  Account: $ACCOUNT_ID | Region: $REGION"
-npx cdk bootstrap aws://$ACCOUNT_ID/$REGION
+npx cdk bootstrap aws://$ACCOUNT_ID/$REGION --app ""
 
 echo -e "${GREEN}[4/5] Deploying AWS LaunchPad...${NC}"
 npx cdk deploy $CDK_ARGS --require-approval never --outputs-file outputs.json
