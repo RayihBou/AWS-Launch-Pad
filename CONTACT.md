@@ -1,16 +1,11 @@
 # Contact
 
-For questions, support, or feedback about AWS LaunchPad:
+For questions, bug reports, or feature requests, please open an [issue](https://github.com/RayihBou/AWS-Launch-Pad/issues) on GitHub.
 
-| Field | Details |
-|-------|---------|
-| Name | Rayih Bou |
-| Role | Solutions Architect, AWS |
-| Alias | rayihbou |
-| Email | rayihbou@amazon.com |
+## Security Issues
 
-## Getting Help
+See [CONTRIBUTING.md](CONTRIBUTING.md#security-issue-notifications) for responsible disclosure.
 
-- **Bug reports and feature requests:** Open an issue on the [GitHub repository](https://github.com/awslabs/aws-launchpad/issues)
-- **Security issues:** See [CONTRIBUTING.md](CONTRIBUTING.md#security-issue-notifications) for responsible disclosure
-- **General questions:** Contact the author directly via email
+## Maintainer
+
+- **Rayih Bou** — Solutions Architect, AWS

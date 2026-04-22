@@ -38,3 +38,9 @@ aws-exports.js
 *.log
 docs/.*bkp
 scripts/create-users.sh
+
+# Sensitive files
+*.pem
+*.key
+cdk.context.json
+.aws/
