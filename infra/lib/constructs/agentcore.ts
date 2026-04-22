@@ -57,14 +57,9 @@ export class LaunchpadAgentCore extends Construct {
       ],
     });
 
-    // Escape hatch: API requires IamCredentialProvider object for mcpServer targets
+    // Escape hatch: Knowledge MCP is a public AWS endpoint - no credentials needed at target level
     const cfnKnowledgeTarget = knowledgeTarget.node.defaultChild as cdk.CfnResource;
-    cfnKnowledgeTarget.addPropertyOverride('CredentialProviderConfigurations', [
-      {
-        CredentialProviderType: 'GATEWAY_IAM_ROLE',
-        CredentialProvider: { IamCredentialProvider: { Service: 'bedrock-agentcore' } },
-      },
-    ]);
+    cfnKnowledgeTarget.addPropertyDeletionOverride('CredentialProviderConfigurations');
 
     // Lambda MCP targets with tool schemas
     const lambdaTargets: { name: string; desc: string; tools: any[] }[] = [
