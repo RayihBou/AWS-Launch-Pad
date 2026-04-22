@@ -16,6 +16,7 @@ export interface ApiProxyProps {
   userPool: cognito.UserPool;
   userPoolClient: cognito.UserPoolClient;
   runtimeArn: string;
+  uploadsBucket: s3.Bucket;
 }
 
 export class ApiProxy extends Construct {
@@ -37,20 +38,8 @@ export class ApiProxy extends Construct {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // S3 uploads bucket (presigned URLs, lifecycle 1 day)
-    this.uploadsBucket = new s3.Bucket(this, 'UploadsBucket', {
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
-      lifecycleRules: [{ expiration: cdk.Duration.days(1) }],
-      cors: [{
-        allowedMethods: [s3.HttpMethods.PUT],
-        allowedOrigins: ['*'],
-        allowedHeaders: ['*'],
-        maxAge: 300,
-      }],
-    });
+    // S3 uploads bucket (passed from parent stack)
+    this.uploadsBucket = props.uploadsBucket;
 
     // Lambda Proxy function
     const proxyFn = new lambda.Function(this, 'ProxyFn', {

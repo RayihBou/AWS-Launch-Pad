@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 import * as cdk from 'aws-cdk-lib';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 import { LaunchpadAuth } from './constructs/auth';
 import { LaunchpadFrontend } from './constructs/frontend';
@@ -38,14 +39,22 @@ export class LaunchpadStack extends cdk.Stack {
     // MCP Lambda functions (Gateway targets)
     const mcpLambdas = new McpLambdas(this, 'McpLambdas');
 
-    // API Proxy (HTTP API, DynamoDB, S3 uploads) - created before AgentCore to get bucket name
-    const apiProxy = new ApiProxy(this, 'ApiProxy', {
-      userPool: auth.userPool,
-      userPoolClient: auth.userPoolClient,
-      runtimeArn: '', // Placeholder - updated after AgentCore creation
+    // S3 uploads bucket (shared between ApiProxy and AgentCore)
+    const uploadsBucket = new s3.Bucket(this, 'UploadsBucket', {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      lifecycleRules: [{ expiration: cdk.Duration.days(1) }],
+      cors: [{
+        allowedMethods: [s3.HttpMethods.PUT],
+        allowedOrigins: ['*'],
+        allowedHeaders: ['*'],
+        maxAge: 300,
+      }],
     });
 
-    // AgentCore (Runtime, Gateway, Memory)
+    // AgentCore (Runtime, Gateway, Memory) - created before ApiProxy to provide runtimeArn
     const agentCore = new LaunchpadAgentCore(this, 'AgentCore', {
       userPool: auth.userPool,
       userPoolClient: auth.userPoolClient,
@@ -56,8 +65,16 @@ export class LaunchpadStack extends cdk.Stack {
       ],
       language,
       modelId,
-      uploadsBucket: apiProxy.uploadsBucket.bucketName,
+      uploadsBucket: uploadsBucket.bucketName,
       enableCrossAccount: props.enableCrossAccount,
+    });
+
+    // API Proxy (HTTP API, DynamoDB) - receives real runtimeArn from AgentCore
+    const apiProxy = new ApiProxy(this, 'ApiProxy', {
+      userPool: auth.userPool,
+      userPoolClient: auth.userPoolClient,
+      runtimeArn: agentCore.runtime.agentRuntimeArn,
+      uploadsBucket,
     });
 
     // WebSocket (WS API, Authorizer, Handler, Warmup)
@@ -65,7 +82,7 @@ export class LaunchpadStack extends cdk.Stack {
       cognitoClientId: auth.userPoolClient.userPoolClientId,
       runtimeArn: agentCore.runtime.agentRuntimeArn,
       conversationsTableName: apiProxy.conversationsTable.tableName,
-      uploadsBucketName: apiProxy.uploadsBucket.bucketName,
+      uploadsBucketName: uploadsBucket.bucketName,
     });
 
     // Frontend (S3 + CloudFront)
