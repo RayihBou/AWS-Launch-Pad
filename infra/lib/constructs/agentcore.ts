@@ -48,7 +48,7 @@ export class LaunchpadAgentCore extends Construct {
     });
 
     // Remote MCP target: AWS Knowledge (public, uses IAM role)
-    this.gateway.addMcpServerTarget('KnowledgeTarget', {
+    const knowledgeTarget = this.gateway.addMcpServerTarget('KnowledgeTarget', {
       gatewayTargetName: 'aws-knowledge-mcp',
       description: 'AWS documentation and best practices',
       endpoint: 'https://knowledge-mcp.global.api.aws',
@@ -56,6 +56,15 @@ export class LaunchpadAgentCore extends Construct {
         agentcore.GatewayCredentialProvider.fromIamRole(),
       ],
     });
+
+    // Escape hatch: API requires IamCredentialProvider object for mcpServer targets
+    const cfnKnowledgeTarget = knowledgeTarget.node.defaultChild as cdk.CfnResource;
+    cfnKnowledgeTarget.addPropertyOverride('CredentialProviderConfigurations', [
+      {
+        CredentialProviderType: 'GATEWAY_IAM_ROLE',
+        CredentialProvider: { IamCredentialProvider: {} },
+      },
+    ]);
 
     // Lambda MCP targets with tool schemas
     const lambdaTargets: { name: string; desc: string; tools: any[] }[] = [
