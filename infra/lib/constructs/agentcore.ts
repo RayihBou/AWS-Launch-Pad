@@ -6,7 +6,6 @@ import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as ecr_assets from 'aws-cdk-lib/aws-ecr-assets';
 import * as agentcore from '@aws-cdk/aws-bedrock-agentcore-alpha';
 
 export interface LaunchpadAgentCoreProps {
@@ -97,11 +96,12 @@ export class LaunchpadAgentCore extends Construct {
       });
     });
 
-    // --- Runtime from local Dockerfile ---
-    const artifact = agentcore.AgentRuntimeArtifact.fromAsset(
-      path.join(__dirname, '../../../agent'),
-      { platform: ecr_assets.Platform.LINUX_ARM64 },
-    );
+    // --- Runtime from code asset (no Docker required) ---
+    const artifact = agentcore.AgentRuntimeArtifact.fromCodeAsset({
+      path: path.join(__dirname, '../../../agent'),
+      runtime: agentcore.AgentCoreRuntime.PYTHON_3_12,
+      entrypoint: ['python', 'app.py'],
+    });
 
     this.runtime = new agentcore.Runtime(this, 'Runtime', {
       runtimeName: 'launchpad_agent',
