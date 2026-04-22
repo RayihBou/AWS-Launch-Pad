@@ -54,16 +54,19 @@ if [[ ! "$CONFIRM" =~ ^[yY]$ ]]; then
 fi
 
 echo ""
-echo -e "${GREEN}[1/4] Installing dependencies...${NC}"
+echo -e "${GREEN}[1/5] Installing dependencies...${NC}"
 npm install --silent
 
-echo -e "${GREEN}[2/4] Building frontend...${NC}"
+echo -e "${GREEN}[2/5] Building frontend...${NC}"
 cd frontend && npm install --silent && npm run build && cd ..
 
-echo -e "${GREEN}[3/4] Bootstrapping CDK...${NC}"
-npx cdk bootstrap -c adminEmail=$ADMIN_EMAIL 2>/dev/null || true
+echo -e "${GREEN}[3/5] Bootstrapping CDK...${NC}"
+# Use npx to ensure correct CDK CLI version from node_modules
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+REGION=$(aws configure get region || echo "us-east-1")
+npx cdk bootstrap aws://$ACCOUNT_ID/$REGION 2>/dev/null || true
 
-echo -e "${GREEN}[4/4] Deploying AWS LaunchPad...${NC}"
+echo -e "${GREEN}[4/5] Deploying AWS LaunchPad...${NC}"
 npx cdk deploy $CDK_ARGS --require-approval never --outputs-file outputs.json
 
 echo ""
