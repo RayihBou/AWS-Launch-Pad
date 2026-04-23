@@ -78,7 +78,7 @@ aws ecr describe-repositories --repository-names $LOCAL_REPO --region $REGION > 
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com > /dev/null 2>&1
 
 # Pull from public, tag, and push to private ECR
-docker pull $PUBLIC_IMAGE
+docker pull --platform linux/arm64 $PUBLIC_IMAGE
 docker tag $PUBLIC_IMAGE $LOCAL_IMAGE
 docker push $LOCAL_IMAGE
 
