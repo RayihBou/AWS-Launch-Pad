@@ -59,7 +59,7 @@ export class LaunchpadWebSocket extends Construct {
     // Grant WS handler permissions
     wsHandlerFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['bedrock-agentcore:InvokeAgentRuntime'],
-      resources: [props.runtimeArn],
+      resources: [props.runtimeArn, `${props.runtimeArn}/*`],
     }));
     wsHandlerFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:Query'],
@@ -122,7 +122,7 @@ export class LaunchpadWebSocket extends Construct {
 
     warmupFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['bedrock-agentcore:InvokeAgentRuntime'],
-      resources: [props.runtimeArn],
+      resources: [props.runtimeArn, `${props.runtimeArn}/*`],
     }));
 
     new events.Rule(this, 'WarmupRule', {

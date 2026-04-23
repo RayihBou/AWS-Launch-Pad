@@ -59,7 +59,7 @@ export class ApiProxy extends Construct {
     // Proxy permissions
     proxyFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['bedrock-agentcore:InvokeAgentRuntime'],
-      resources: [props.runtimeArn],
+      resources: [props.runtimeArn, `${props.runtimeArn}/*`],
     }));
     this.conversationsTable.grantReadWriteData(proxyFn);
     this.uploadsBucket.grantReadWrite(proxyFn);
