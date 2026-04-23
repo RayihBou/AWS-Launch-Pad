@@ -96,10 +96,11 @@ export class LaunchpadAgentCore extends Construct {
       });
     });
 
-    // --- Runtime from public ECR image (pre-built arm64) ---
-    // Use a placeholder URI to satisfy CDK validation, then override with public ECR URI
-    const placeholderUri = `${cdk.Stack.of(this).account}.dkr.ecr.${cdk.Stack.of(this).region}.amazonaws.com/placeholder:latest`;
-    const artifact = agentcore.AgentRuntimeArtifact.fromImageUri(placeholderUri);
+    // --- Runtime from container image ---
+    // The container URI is injected via CDK context by setup.sh
+    const containerUri = scope.node.tryGetContext('containerUri') ||
+      `${cdk.Stack.of(this).account}.dkr.ecr.${cdk.Stack.of(this).region}.amazonaws.com/launchpad-agent:latest`;
+    const artifact = agentcore.AgentRuntimeArtifact.fromImageUri(containerUri);
 
     this.runtime = new agentcore.Runtime(this, 'Runtime', {
       runtimeName: 'launchpad_agent',
@@ -114,23 +115,6 @@ export class LaunchpadAgentCore extends Construct {
         ...(props.enableCrossAccount ? { ENABLE_CROSS_ACCOUNT: 'true' } : {}),
       },
     });
-
-    // Override container URI with public ECR image
-    const cfnRuntime = this.runtime.node.defaultChild as cdk.CfnResource;
-    cfnRuntime.addPropertyOverride(
-      'AgentRuntimeArtifact.ContainerConfiguration.ContainerUri',
-      'public.ecr.aws/t8k4q6p6/launchpad-agent:latest',
-    );
-
-    // Grant ECR Public pull access
-    this.runtime.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['ecr-public:GetAuthorizationToken', 'ecr-public:BatchGetImage', 'ecr-public:GetDownloadUrlForLayer'],
-      resources: ['*'],
-    }));
-    this.runtime.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['sts:GetServiceBearerToken'],
-      resources: ['*'],
-    }));
 
     // Grant Bedrock model invocation
     this.runtime.addToRolePolicy(new iam.PolicyStatement({
