@@ -54,27 +54,57 @@ if [[ ! "$CONFIRM" =~ ^[yY]$ ]]; then
 fi
 
 echo ""
-echo -e "${GREEN}[1/5] Installing dependencies...${NC}"
+echo -e "${GREEN}[1/7] Installing dependencies...${NC}"
 npm install --silent
 
-echo -e "${GREEN}[2/5] Building frontend...${NC}"
-cd frontend && npm install --silent && npm run build && cd ..
+echo -e "${GREEN}[2/7] Installing frontend dependencies...${NC}"
+cd frontend && npm install --silent && cd ..
 
-echo -e "${GREEN}[3/5] Bootstrapping CDK...${NC}"
+echo -e "${GREEN}[3/7] Building frontend (initial)...${NC}"
+cd frontend && npm run build && cd ..
+
+echo -e "${GREEN}[4/7] Bootstrapping CDK...${NC}"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 REGION=${AWS_DEFAULT_REGION:-${AWS_REGION:-us-east-1}}
 echo "  Account: $ACCOUNT_ID | Region: $REGION"
 npx cdk bootstrap aws://$ACCOUNT_ID/$REGION --app ""
 
-echo -e "${GREEN}[4/5] Deploying AWS LaunchPad...${NC}"
+echo -e "${GREEN}[5/7] Deploying AWS LaunchPad...${NC}"
 npx cdk deploy $CDK_ARGS --require-approval never --outputs-file outputs.json
+
+echo -e "${GREEN}[6/7] Configuring frontend with stack outputs...${NC}"
+# Extract outputs from outputs.json
+USER_POOL_ID=$(node -e "const o=require('./outputs.json').LaunchPadStack; console.log(o.UserPoolId)")
+USER_POOL_CLIENT_ID=$(node -e "const o=require('./outputs.json').LaunchPadStack; console.log(o.UserPoolClientId)")
+API_ENDPOINT=$(node -e "const o=require('./outputs.json').LaunchPadStack; console.log(o.ApiEndpoint)")
+WS_ENDPOINT=$(node -e "const o=require('./outputs.json').LaunchPadStack; console.log(o.WsEndpoint)")
+CLOUDFRONT_URL=$(node -e "const o=require('./outputs.json').LaunchPadStack; console.log(o.CloudFrontUrl)")
+BUCKET_NAME=$(node -e "const o=require('./outputs.json').LaunchPadStack; console.log(o.FrontendBucketName)")
+DISTRIBUTION_ID=$(node -e "const o=require('./outputs.json').LaunchPadStack; console.log(o.DistributionId)")
+
+echo "  UserPoolId: $USER_POOL_ID"
+echo "  ApiEndpoint: $API_ENDPOINT"
+echo "  WsEndpoint: $WS_ENDPOINT"
+
+# Rebuild frontend with real values
+export VITE_USER_POOL_ID=$USER_POOL_ID
+export VITE_USER_POOL_CLIENT_ID=$USER_POOL_CLIENT_ID
+export VITE_AGENT_ENDPOINT=$API_ENDPOINT
+export VITE_WS_ENDPOINT=$WS_ENDPOINT
+export VITE_AWS_REGION=$REGION
+export VITE_LANGUAGE=$LANGUAGE
+cd frontend && npm run build && cd ..
+
+echo -e "${GREEN}[7/7] Uploading frontend to S3...${NC}"
+aws s3 sync frontend/dist/ s3://$BUCKET_NAME/ --delete --region $REGION
+aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*" --region us-east-1 > /dev/null 2>&1
 
 echo ""
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  Deployment complete!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
-if [ -f outputs.json ]; then
-  echo "Stack outputs:"
-  cat outputs.json | head -50
-fi
+echo -e "  URL: ${GREEN}$CLOUDFRONT_URL${NC}"
+echo "  Check your email ($ADMIN_EMAIL) for the temporary password."
+echo "  Log in and configure MFA (TOTP)."
+echo ""
