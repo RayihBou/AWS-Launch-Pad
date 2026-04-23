@@ -105,6 +105,16 @@ export class LaunchpadWebSocket extends Construct {
     this.wsApi.addRoute('$disconnect', { integration: wsIntegration });
     this.wsApi.addRoute('sendMessage', { integration: wsIntegration });
 
+    // Grant API Gateway permission to invoke Lambda for all routes
+    wsHandlerFn.addPermission('WsDisconnectPermission', {
+      principal: new iam.ServicePrincipal('apigateway.amazonaws.com'),
+      sourceArn: `arn:aws:execute-api:${region}:${account}:${this.wsApi.apiId}/*$disconnect`,
+    });
+    wsHandlerFn.addPermission('WsSendMessagePermission', {
+      principal: new iam.ServicePrincipal('apigateway.amazonaws.com'),
+      sourceArn: `arn:aws:execute-api:${region}:${account}:${this.wsApi.apiId}/*sendMessage`,
+    });
+
     this.wsEndpoint = `wss://${this.wsApi.apiId}.execute-api.${region}.amazonaws.com/${this.wsStage.stageName}`;
 
     // --- Warmup Lambda + EventBridge ---
