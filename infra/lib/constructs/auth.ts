@@ -1,7 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 import { Construct } from 'constructs';
+import * as cdk from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
 
 export interface LaunchpadAuthProps {
   adminEmail: string;
@@ -74,15 +76,41 @@ export class LaunchpadAuth extends Construct {
       generateSecret: false,
     });
 
-    // Create initial admin user - receives temporary password via email
-    new cognito.CfnUserPoolUser(this, 'AdminUser', {
-      userPoolId: this.userPool.userPoolId,
-      username: props.adminEmail,
-      userAttributes: [
-        { name: 'email', value: props.adminEmail },
-        { name: 'email_verified', value: 'true' },
-      ],
-      desiredDeliveryMediums: ['EMAIL'],
+    // Create initial admin user - skip if already exists
+    const createUserFn = new lambda.Function(this, 'CreateUserFn', {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'index.handler',
+      code: lambda.Code.fromInline(`
+import boto3, cfnresponse
+def handler(event, context):
+    if event['RequestType'] == 'Delete':
+        cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+        return
+    try:
+        client = boto3.client('cognito-idp')
+        client.admin_create_user(
+            UserPoolId=event['ResourceProperties']['UserPoolId'],
+            Username=event['ResourceProperties']['Email'],
+            UserAttributes=[
+                {'Name': 'email', 'Value': event['ResourceProperties']['Email']},
+                {'Name': 'email_verified', 'Value': 'true'},
+            ],
+            DesiredDeliveryMediums=['EMAIL'],
+        )
+    except client.exceptions.UsernameExistsException:
+        pass
+    cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+`),
+      timeout: cdk.Duration.seconds(30),
+    });
+    this.userPool.grant(createUserFn, 'cognito-idp:AdminCreateUser');
+
+    new cdk.CustomResource(this, 'AdminUser', {
+      serviceToken: createUserFn.functionArn,
+      properties: {
+        UserPoolId: this.userPool.userPoolId,
+        Email: props.adminEmail,
+      },
     });
   }
 }
