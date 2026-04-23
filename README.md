@@ -66,6 +66,46 @@ cdk deploy -c adminEmail=admin@example.com -c language=es
 2. Open the CloudFront URL from the stack outputs
 3. Log in and set a new password + MFA (TOTP)
 
+### Cross-Account Visibility
+
+Cross-account visibility allows the agent to query resources across multiple AWS accounts in your organization.
+
+**Enable during initial deployment:**
+
+The interactive setup will ask if you want to enable cross-account visibility. Alternatively, pass it directly:
+
+```bash
+cdk deploy -c adminEmail=admin@example.com -c enableCrossAccount=true
+```
+
+**Enable on an existing deployment:**
+
+```bash
+npx cdk deploy -c adminEmail=admin@example.com -c language=es -c containerUri=<YOUR_ECR_URI> -c enableCrossAccount=true --require-approval never
+```
+
+This updates the existing stack without recreating resources — it adds IAM policies for `sts:AssumeRole` and `organizations:ListAccounts`, and enables 3 additional agent tools.
+
+**Disable on an existing deployment:**
+
+```bash
+npx cdk deploy -c adminEmail=admin@example.com -c language=es -c containerUri=<YOUR_ECR_URI> --require-approval never
+```
+
+Omitting `-c enableCrossAccount=true` removes the cross-account permissions and tools.
+
+**How it works:**
+
+1. The agent gets access to `list_organization_accounts` to discover accounts
+2. It can `generate_cross_account_setup` — a CloudFormation template that creates a `LaunchPadReadOnlyRole` in linked accounts
+3. It uses `assume_role` to query resources in linked accounts via the read-only role
+
+**Setup for linked accounts:**
+
+1. Ask the agent: "Generate the cross-account setup template"
+2. Deploy the generated CloudFormation template in each linked account
+3. The agent can then query resources across all configured accounts
+
 ## Architecture
 
 The solution deploys entirely within the customer's AWS account. No data leaves the account except for Bedrock model inference.
