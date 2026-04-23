@@ -116,6 +116,16 @@ export class LaunchpadAgentCore extends Construct {
       },
     });
 
+    // Grant ECR pull access for container image
+    this.runtime.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['ecr:GetAuthorizationToken'],
+      resources: ['*'],
+    }));
+    this.runtime.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['ecr:BatchGetImage', 'ecr:GetDownloadUrlForLayer', 'ecr:BatchCheckLayerAvailability'],
+      resources: [`arn:aws:ecr:${region}:${cdk.Stack.of(this).account}:repository/launchpad-agent`],
+    }));
+
     // Grant Bedrock model invocation
     this.runtime.addToRolePolicy(new iam.PolicyStatement({
       actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
