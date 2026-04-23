@@ -42,7 +42,7 @@ export default function Login({ onLogin, onCompleteNewPassword, onVerifyTotp, er
             <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpUri)}`} alt="QR Code" />
           </div>
           <p className="login__secret">Clave manual: <code>{totpSecret}</code></p>
-          <input type="text" placeholder="Codigo de 6 digitos" value={totpCode} autoFocus onChange={(e) => setTotpCode(e.target.value)} required autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" />
+          <input type="text" placeholder="Código de 6 dígitos" value={totpCode} autoFocus onChange={(e) => setTotpCode(e.target.value)} required autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" />
           <button type="submit">Verificar</button>
         </form>
       );
@@ -51,7 +51,7 @@ export default function Login({ onLogin, onCompleteNewPassword, onVerifyTotp, er
       return (
         <form onSubmit={handleTotp}>
           <p className="login__message">Ingresa el codigo de tu app authenticator</p>
-          <input type="text" placeholder="Codigo de 6 digitos" value={totpCode} autoFocus onChange={(e) => setTotpCode(e.target.value)} required autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" />
+          <input type="text" placeholder="Código de 6 dígitos" value={totpCode} autoFocus onChange={(e) => setTotpCode(e.target.value)} required autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" />
           <button type="submit">Verificar</button>
         </form>
       );
