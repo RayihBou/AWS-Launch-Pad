@@ -101,10 +101,12 @@ if ENABLE_CROSS_ACCOUNT:
 CROSS-ACCOUNT: This deployment has multi-account visibility enabled.
 - You can list all accounts in the AWS Organization with list_organization_accounts.
 - To access resources in another account, first call assume_role with the account_id. All subsequent tool calls will use that account's credentials automatically.
-- If the user asks about a specific account, call assume_role first, then use the regular tools (list_s3_buckets, describe_ec2_instances, etc.).
+- IMPORTANT: When querying resources across ALL accounts, you MUST follow this pattern for EACH account: 1) assume_role(account_id) 2) query the resource immediately 3) collect results 4) move to next account. Do NOT assume all roles first and query later — credentials change with each assume_role call.
+- If the user asks about a specific account, call assume_role first, then use the regular tools.
+- If the user asks about "all accounts" or "the organization", iterate through each active account using the pattern above.
 - If the user asks a general question without specifying an account, use the local account (do NOT call assume_role).
 - If assume_role fails because the role doesn't exist, offer to generate the setup script with generate_cross_account_setup.
-- Always indicate which account the results are from in your response (e.g., "En la cuenta 111222333444 (Produccion):").
+- Always indicate which account the results are from in your response.
 - After finishing with a cross-account query, the next query will continue using that account unless the user asks about a different one or the local account."""
 
 _clients = {}
