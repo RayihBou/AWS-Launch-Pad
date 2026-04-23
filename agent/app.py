@@ -177,7 +177,7 @@ a {{color:var(--orange)}}
 </head>
 <body>
 <div class="header">
-<img src="https://a0.awsstatic.com/libra-css/images/logos/aws_smile-header-desktop-en-white_59x35.png" alt="AWS Logo">
+<img src="https://assets.rayihbou.people.aws.dev/aws-logo.svg" alt="AWS Logo">
 <h1>{title}</h1>
 <button class="download-btn" onclick="downloadPage()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar</button>
 </div>
