@@ -67,6 +67,7 @@
     "catNetwork": "Red y Conectividad",
     "catContainers": "Contenedores",
     "catMonitoring": "Monitoreo y Alarmas",
-    "catAudit": "Auditoría y Trazabilidad"
+    "catAudit": "Auditoría y Trazabilidad",
+    "powered": "Powered by Amazon Bedrock AgentCore"
   }
 }

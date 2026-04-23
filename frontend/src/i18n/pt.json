@@ -3,7 +3,8 @@
     "title": "AWS LaunchPad",
     "subtitle": "Assistente de Nuvem com IA",
     "newConversation": "Nova conversa",
-    "export": "Exportar conversa"
+    "export": "Exportar conversa",
+    "manageUsers": "Gerenciar usuários"
   },
   "chat": {
     "placeholder": "Faça sua pergunta...",
@@ -24,7 +25,26 @@
     "capMonitoring": "Monitoramento CloudWatch",
     "capSecurity": "Seguranca e Compliance",
     "capCost": "Custos e Pricing",
-    "capGeneral": "Consultas AWS"
+    "capGeneral": "Consultas AWS",
+    "catSecurity": "Segurança",
+    "catSecurityDesc": "Postura de segurança, WAF, S3, RDS, IAM",
+    "catCost": "Custos",
+    "catCostDesc": "Cost Explorer, orçamentos, otimização",
+    "catNetwork": "Rede",
+    "catNetworkDesc": "VPC, security groups, NACLs, flow logs",
+    "catContainers": "Contêineres",
+    "catContainersDesc": "ECS clusters, EKS, serviços, tarefas",
+    "catMonitoring": "Monitoramento",
+    "catMonitoringDesc": "CloudWatch métricas, alarmes, logs",
+    "catAudit": "Auditoria",
+    "catAuditDesc": "CloudTrail eventos, rastreabilidade",
+    "suggestedTitle": "Prompts sugeridos",
+    "prompt1": "Analise a postura de segurança da minha conta",
+    "prompt2": "Mostre o resumo de custos do último mês",
+    "prompt3": "Liste as instâncias EC2 e seu estado atual",
+    "prompt4": "Verifique se há buckets S3 com acesso público",
+    "prompt5": "Analise a segurança da minha conta e gere um relatório HTML com as descobertas",
+    "prompt6": "Mostre os alarmes do CloudWatch ativos"
   },
   "sidebar": {
     "title": "Historico de Chats",
@@ -39,6 +59,15 @@
     "newPassword": "Nova Senha",
     "changePassword": "Alterar Senha",
     "newPasswordMessage": "Voce deve alterar sua senha no primeiro acesso.",
-    "logout": "Sair"
+    "logout": "Sair",
+    "heroTitle": "Seu assistente de operações na nuvem",
+    "heroDesc": "Analise, monitore e otimize sua infraestrutura AWS com inteligência artificial. Obtenha recomendações de segurança, custos e desempenho em tempo real.",
+    "catSecurity": "Segurança e Compliance",
+    "catCost": "Custos e Otimização",
+    "catNetwork": "Rede e Conectividade",
+    "catContainers": "Contêineres",
+    "catMonitoring": "Monitoramento e Alarmes",
+    "catAudit": "Auditoria e Rastreabilidade",
+    "powered": "Powered by Amazon Bedrock AgentCore"
   }
 }

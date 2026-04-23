@@ -3,7 +3,8 @@
     "title": "AWS LaunchPad",
     "subtitle": "AI-Powered Cloud Assistant",
     "newConversation": "New conversation",
-    "export": "Export conversation"
+    "export": "Export conversation",
+    "manageUsers": "Manage users"
   },
   "chat": {
     "placeholder": "Ask a question...",
@@ -24,7 +25,26 @@
     "capMonitoring": "CloudWatch Monitoring",
     "capSecurity": "Security & Compliance",
     "capCost": "Cost & Pricing",
-    "capGeneral": "AWS Guidance"
+    "capGeneral": "AWS Guidance",
+    "catSecurity": "Security",
+    "catSecurityDesc": "Security posture, WAF, S3, RDS, IAM",
+    "catCost": "Costs",
+    "catCostDesc": "Cost Explorer, budgets, optimization",
+    "catNetwork": "Network",
+    "catNetworkDesc": "VPC, security groups, NACLs, flow logs",
+    "catContainers": "Containers",
+    "catContainersDesc": "ECS clusters, EKS, services, tasks",
+    "catMonitoring": "Monitoring",
+    "catMonitoringDesc": "CloudWatch metrics, alarms, logs",
+    "catAudit": "Audit",
+    "catAuditDesc": "CloudTrail events, traceability",
+    "suggestedTitle": "Suggested prompts",
+    "prompt1": "Analyze my account's security posture",
+    "prompt2": "Show last month's cost summary",
+    "prompt3": "List EC2 instances and their current status",
+    "prompt4": "Check for S3 buckets with public access",
+    "prompt5": "Analyze my account security and generate an HTML report with findings",
+    "prompt6": "Show active CloudWatch alarms"
   },
   "sidebar": {
     "title": "Chat History",
@@ -39,6 +59,15 @@
     "newPassword": "New Password",
     "changePassword": "Change Password",
     "newPasswordMessage": "You must change your password on first login.",
-    "logout": "Sign Out"
+    "logout": "Sign Out",
+    "heroTitle": "Your cloud operations assistant",
+    "heroDesc": "Analyze, monitor and optimize your AWS infrastructure with artificial intelligence. Get real-time security, cost and performance recommendations.",
+    "catSecurity": "Security & Compliance",
+    "catCost": "Cost & Optimization",
+    "catNetwork": "Network & Connectivity",
+    "catContainers": "Containers",
+    "catMonitoring": "Monitoring & Alarms",
+    "catAudit": "Audit & Traceability",
+    "powered": "Powered by Amazon Bedrock AgentCore"
   }
 }
