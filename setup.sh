@@ -124,4 +124,43 @@ echo ""
 echo -e "  URL: ${GREEN}$CLOUDFRONT_URL${NC}"
 echo "  Check your email ($ADMIN_EMAIL) for the temporary password."
 echo "  Log in and configure MFA (TOTP)."
+
+# Generate cross-account template if enabled
+if [[ "$CROSS_ACCOUNT" =~ ^[yY]$ ]]; then
+  RUNTIME_ROLE_ARN=$(node -e "console.log(require('./outputs.json').LaunchPadStack.RuntimeRoleArn)")
+  sed "s|RUNTIME_ROLE_ARN_PLACEHOLDER|$RUNTIME_ROLE_ARN|g; s|ACCOUNT_ID_PLACEHOLDER|$ACCOUNT_ID|g" docs/launchpad-role.yaml > launchpad-role.yaml 2>/dev/null || \
+  cat > launchpad-role.yaml <<YAML
+AWSTemplateFormatVersion: '2010-09-09'
+Description: LaunchPad read-only cross-account role for linked accounts
+Parameters:
+  ManagementAccountId:
+    Type: String
+    Default: '$ACCOUNT_ID'
+    Description: AWS Account ID where LaunchPad is deployed
+Resources:
+  LaunchPadReadOnlyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: LaunchPadReadOnlyRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: '$RUNTIME_ROLE_ARN'
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
+YAML
+  echo ""
+  echo -e "${GREEN}  Cross-account template generated: launchpad-role.yaml${NC}"
+  echo "  Runtime Role: $RUNTIME_ROLE_ARN"
+  echo ""
+  echo "  Deploy to a single linked account:"
+  echo "    aws cloudformation deploy --template-file launchpad-role.yaml --stack-name LaunchPadAccess --capabilities CAPABILITY_NAMED_IAM"
+  echo ""
+  echo "  Deploy to all accounts via StackSet (from management account):"
+  echo "    aws cloudformation create-stack-set --stack-set-name LaunchPadAccess --template-body file://launchpad-role.yaml --capabilities CAPABILITY_NAMED_IAM --permission-model SERVICE_MANAGED --auto-deployment Enabled=true,RetainStacksOnAccountRemoval=false"
+  echo "    aws cloudformation create-stack-instances --stack-set-name LaunchPadAccess --deployment-targets OrganizationalUnitIds=YOUR_OU_ID --regions us-east-1"
+fi
 echo ""

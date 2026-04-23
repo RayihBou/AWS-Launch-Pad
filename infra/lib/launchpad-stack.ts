@@ -108,5 +108,6 @@ export class LaunchpadStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'MemoryId', { value: agentCore.memory.memoryId });
     new cdk.CfnOutput(this, 'Language', { value: language });
     new cdk.CfnOutput(this, 'ModelId', { value: modelId });
+    new cdk.CfnOutput(this, 'RuntimeRoleArn', { value: agentCore.runtime.role.roleArn });
   }
 }

@@ -1,0 +1,25 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: LaunchPad read-only cross-account role for linked accounts
+
+Parameters:
+  ManagementAccountId:
+    Type: String
+    Description: AWS Account ID where LaunchPad is deployed
+  RuntimeRoleArn:
+    Type: String
+    Description: ARN of the LaunchPad AgentCore Runtime execution role
+
+Resources:
+  LaunchPadReadOnlyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: LaunchPadReadOnlyRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref RuntimeRoleArn
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
