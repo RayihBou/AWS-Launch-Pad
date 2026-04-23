@@ -51,6 +51,7 @@ export default function useAuth() {
         setCognitoUser(authUser);
         setTotpSecret(secret);
         setMfaSetupRequired(true);
+        setNewPasswordRequired(false);
       },
       onFailure: (err) => setError(err.message || 'MFA setup failed'),
     });

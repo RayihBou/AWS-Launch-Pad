@@ -26,7 +26,7 @@ async function apiCall(path, method = 'GET', body = null) {
   if (!auth) return null;
   const headers = { 'Authorization': `Bearer ${auth.token}` };
   if (body) headers['Content-Type'] = 'application/json';
-  const res = await fetch(config.agentEndpoint.replace('/chat', path), {
+  const res = await fetch(`${config.apiBase}${path}`, {
     method, headers, body: body ? JSON.stringify(body) : undefined,
   });
   return { data: await res.json(), auth };

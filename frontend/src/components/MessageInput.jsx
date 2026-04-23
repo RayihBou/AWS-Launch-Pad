@@ -19,7 +19,7 @@ function getToken() {
 async function uploadToS3(file) {
   const token = await getToken();
   const res = await fetch(
-    `${config.agentEndpoint.replace('/chat', '/upload-url')}?filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type)}`,
+    `${config.apiBase}/upload-url?filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type)}`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   const { uploadUrl, s3Key } = await res.json();
