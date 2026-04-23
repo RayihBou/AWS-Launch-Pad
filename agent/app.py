@@ -500,6 +500,14 @@ def generate_cross_account_setup(payer_account_id: str = '') -> str:
             payer_account_id = aws('sts').get_caller_identity()['Account']
         except:
             payer_account_id = 'PAYER_ACCOUNT_ID'
+    # Get the actual Runtime role ARN dynamically
+    try:
+        runtime_role_arn = aws('sts').get_caller_identity()['Arn'].split('/')[0].replace(':sts:', ':iam:').replace('assumed-role', 'role')
+        # Extract just the role name from the ARN
+        runtime_role_name = runtime_role_arn.split('/')[-1]
+        principal_arn = f'arn:aws:iam::{payer_account_id}:role/{runtime_role_name}'
+    except:
+        principal_arn = f'arn:aws:iam::{payer_account_id}:root'
     template = f"""AWSTemplateFormatVersion: '2010-09-09'
 Description: LaunchPad read-only cross-account role
 
@@ -513,7 +521,7 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              AWS: arn:aws:iam::{payer_account_id}:role/LaunchpadRuntimeRole
+              AWS: {principal_arn}
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/ReadOnlyAccess"""
