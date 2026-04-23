@@ -100,7 +100,7 @@ export class LaunchpadAgentCore extends Construct {
     const artifact = agentcore.AgentRuntimeArtifact.fromCodeAsset({
       path: path.join(__dirname, '../../../agent'),
       runtime: agentcore.AgentCoreRuntime.PYTHON_3_12,
-      entrypoint: ['python', 'app.py'],
+      entrypoint: ['app.py'],
     });
 
     this.runtime = new agentcore.Runtime(this, 'Runtime', {
