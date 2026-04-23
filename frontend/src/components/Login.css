@@ -31,7 +31,7 @@
   color: var(--color-aws-orange);
 }
 
-.login__card-brand img {
+.login__card-brand svg {
   width: 48px;
   height: 28px;
 }
