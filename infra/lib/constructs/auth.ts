@@ -81,25 +81,23 @@ export class LaunchpadAuth extends Construct {
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: 'index.handler',
       code: lambda.Code.fromInline(`
-import boto3, cfnresponse
+import boto3, json, urllib.request
+def send(event, context, status, data={}):
+    body = json.dumps({"Status": status, "Reason": "See CloudWatch", "PhysicalResourceId": event.get("PhysicalResourceId", context.log_stream_name), "StackId": event["StackId"], "RequestId": event["RequestId"], "LogicalResourceId": event["LogicalResourceId"], "Data": data}).encode()
+    urllib.request.urlopen(urllib.request.Request(event["ResponseURL"], data=body, headers={"Content-Type": ""}, method="PUT"))
 def handler(event, context):
-    if event['RequestType'] == 'Delete':
-        cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+    if event["RequestType"] == "Delete":
+        send(event, context, "SUCCESS")
         return
     try:
-        client = boto3.client('cognito-idp')
-        client.admin_create_user(
-            UserPoolId=event['ResourceProperties']['UserPoolId'],
-            Username=event['ResourceProperties']['Email'],
-            UserAttributes=[
-                {'Name': 'email', 'Value': event['ResourceProperties']['Email']},
-                {'Name': 'email_verified', 'Value': 'true'},
-            ],
-            DesiredDeliveryMediums=['EMAIL'],
-        )
+        client = boto3.client("cognito-idp")
+        client.admin_create_user(UserPoolId=event["ResourceProperties"]["UserPoolId"], Username=event["ResourceProperties"]["Email"], UserAttributes=[{"Name": "email", "Value": event["ResourceProperties"]["Email"]}, {"Name": "email_verified", "Value": "true"}], DesiredDeliveryMediums=["EMAIL"])
     except client.exceptions.UsernameExistsException:
         pass
-    cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+    except Exception as e:
+        send(event, context, "FAILED", {"Error": str(e)})
+        return
+    send(event, context, "SUCCESS")
 `),
       timeout: cdk.Duration.seconds(30),
     });
