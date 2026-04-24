@@ -294,7 +294,7 @@
 </head>
 <body>
     <div class="header">
-        <img src="https://a0.awsstatic.com/libra-css/images/logos/aws_smile-header-desktop-en-white_59x35.png" alt="AWS Logo">
+        <img src="https://assets.rayihbou.people.aws.dev/aws-logo.svg" alt="AWS Logo">
         <div class="header-text">
             <h1>AWS LaunchPad - Guia de Despliegue</h1>
             <p>Guia paso a paso para desplegar el asistente de operaciónes en la nube</p>
@@ -337,15 +337,11 @@
         <div class="info-grid">
             <div class="info-card">
                 <div class="label">Cuenta AWS</div>
-                <div class="value">Con acceso a Amazon Bedrock habilitado (Claude Sonnet 4.6)</div>
+                <div class="value">Cuenta activa (no se necesita habilitar modelos de Bedrock manualmente)</div>
             </div>
             <div class="info-card">
-                <div class="label">Herramientas</div>
-                <div class="value">Node.js 18+ y Docker instalados, o usar AWS CloudShell (ya los incluye)</div>
-            </div>
-            <div class="info-card">
-                <div class="label">AWS CDK</div>
-                <div class="value">Bootstrapped en la cuenta y región destino</div>
+                <div class="label">Entorno</div>
+                <div class="value">AWS CloudShell (recomendado) o entorno local con Node.js 18+ y Docker</div>
             </div>
             <div class="info-card">
                 <div class="label">Permisos</div>
@@ -353,23 +349,15 @@
             </div>
         </div>
 
-        <div class="topic-card">
-            <h3>Bootstrap de AWS CDK</h3>
-            <p>Si es la primera vez que utiliza CDK en esta cuenta/región, ejecute el siguiente comando para preparar el entorno:</p>
-            <div class="code-wrapper">
-                <code>cdk bootstrap</code>
-                <button class="copy-btn" onclick="copyCode(this)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copiar
-                </button>
-            </div>
-            <p>Este comando crea un bucket S3 y los recursos necesarios para que CDK pueda desplegar stacks en su cuenta.</p>
+        <div class="note-box">
+            No se necesita ejecutar <code style="color:#3fb950">cdk bootstrap</code> manualmente. El script <code style="color:#3fb950">setup.sh</code> lo ejecuta automáticamente como parte del proceso de instalación.
         </div>
 
         <!-- Sección 2: Despliegue Estandar -->
         <h2 class="section-title">2. Despliegue Estandar (Cuenta Unitaria)</h2>
 
         <div class="text-block">
-            <p>Para organizaciónes que operan con una sola cuenta AWS. Este es el flujo mas comun y el punto de partida recomendado. El proceso completo toma aproximadamente 10 a 15 minutos.</p>
+            <p>Para organizaciones que operan con una sola cuenta AWS. Este es el flujo mas comun y el punto de partida recomendado. El proceso completo toma aproximadamente 15 a 20 minutos.</p>
         </div>
 
         <div class="topic-card">
@@ -378,7 +366,8 @@
                 <h3>Clonar el Repositorio</h3>
             </div>
             <div class="code-wrapper">
-                <code>git clone https://github.com/aws-samples/aws-launchpad.git</code>
+                <code>git clone https://github.com/RayihBou/AWS-Launch-Pad.git
+cd AWS-Launch-Pad</code>
                 <button class="copy-btn" onclick="copyCode(this)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copiar
                 </button>
@@ -388,37 +377,34 @@
         <div class="topic-card">
             <div class="step-header">
                 <span class="step-number">2</span>
-                <h3>Instalar Dependencias</h3>
+                <h3>Ejecutar el Setup Interactivo</h3>
             </div>
             <div class="code-wrapper">
-                <code>cd aws-launchpad && npm install</code>
+                <code>./setup.sh</code>
                 <button class="copy-btn" onclick="copyCode(this)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copiar
                 </button>
             </div>
+            <p>El script interactivo te guiara a traves de la configuración:</p>
+            <ul>
+                <li>Email del administrador (recibira credenciales temporales de Cognito)</li>
+                <li>Idioma de la interfaz (en/es/pt)</li>
+                <li>Visibilidad multi-cuenta (habilitar acceso a cuentas linked)</li>
+            </ul>
         </div>
 
         <div class="topic-card">
-            <div class="step-header">
-                <span class="step-number">3</span>
-                <h3>Bootstrap de CDK (si no se hizo previamente)</h3>
-            </div>
+            <h3>Proceso Automatizado</h3>
+            <p>El script ejecuta 8 pasos de forma secuencial:</p>
             <div class="code-wrapper">
-                <code>cdk bootstrap</code>
-                <button class="copy-btn" onclick="copyCode(this)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copiar
-                </button>
-            </div>
-            <p>Prepara la cuenta AWS para usar CDK. Crea un bucket S3 para assets, un repositorio ECR para imágenes Docker, y roles IAM necesarios para el despliegue. Solo se ejecuta una vez por cuenta/región. Si ya se ha usado CDK anteriormente en esta cuenta, este paso no es necesario.</p>
-        </div>
-
-        <div class="topic-card">
-            <div class="step-header">
-                <span class="step-number">4</span>
-                <h3>Desplegar el Stack</h3>
-            </div>
-            <div class="code-wrapper">
-                <code>cdk deploy -c adminEmail=admin@empresa.com -c language=es</code>
+                <code>[1/8] Instalar dependencias del proyecto
+[2/8] Instalar dependencias del frontend
+[3/8] Compilar frontend (build inicial)
+[4/8] Bootstrap de CDK (configura la cuenta para despliegues)
+[5/8] Descargar imagen del agente (ECR Public → ECR privado)
+[6/8] Desplegar infraestructura (CDK deploy ~10-15 min)
+[7/8] Configurar frontend con endpoints del stack
+[8/8] Subir frontend a S3 + invalidar cache de CloudFront</code>
                 <button class="copy-btn" onclick="copyCode(this)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copiar
                 </button>
@@ -426,18 +412,33 @@
         </div>
 
         <div class="note-box" style="border-left-color: #ff9900;">
-            <strong>Importante:</strong> Reemplace <code style="color:#3fb950">admin@empresa.com</code> con el correo electrónico del usuario que administrará la herramienta. Este usuario recibirá una contraseña temporal por correo y será el primer administrador del sistema.
+            <strong>Tiempo estimado:</strong> 15-20 minutos. El paso mas largo es el despliegue de infraestructura con CDK (~10-15 min). El email configurado como <code style="color:#3fb950">adminEmail</code> recibira una contraseña temporal de Cognito al finalizar.
+        </div>
+
+        <div class="topic-card">
+            <h3>Despliegue Avanzado (CDK Directo)</h3>
+            <p>Para usuarios que prefieran ejecutar los comandos de CDK manualmente sin el script interactivo:</p>
+            <div class="code-wrapper">
+                <code>npm install
+cd frontend && npm install && npm run build && cd ..
+npx cdk bootstrap aws://ACCOUNT_ID/REGION --app ""
+npx cdk deploy -c adminEmail=admin@example.com -c language=es -c containerUri=ACCOUNT.dkr.ecr.REGION.amazonaws.com/launchpad-agent:latest --require-approval never</code>
+                <button class="copy-btn" onclick="copyCode(this)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copiar
+                </button>
+            </div>
+            <p>Reemplace <code style="color:#3fb950">ACCOUNT_ID</code>, <code style="color:#3fb950">REGION</code> y <code style="color:#3fb950">ACCOUNT</code> con los valores correspondientes a su cuenta AWS.</p>
         </div>
 
         <div class="note-box">
-            CDK despliega automáticamente los siguientes recursos: Amazon Cognito, API Gateway, CloudFront, DynamoDB, AgentCore Runtime, AgentCore Gateway, AgentCore Memory, funciónes Lambda y Bedrock Guardrails.
+            CDK despliega automáticamente los siguientes recursos: Amazon Cognito, API Gateway, CloudFront, DynamoDB, AgentCore Runtime, AgentCore Gateway, AgentCore Memory, funciones Lambda y Bedrock Guardrails.
         </div>
 
         <!-- Sección 3: Despliegue Multi-Cuenta -->
         <h2 class="section-title">3. Despliegue Multi-Cuenta (Payer + Linked Accounts)</h2>
 
         <div class="text-block">
-            <p>Para partners o equipos que administran multiples cuentas bajo AWS Organizations. Este modo permite al agente consultar recursos en todas las cuentas vinculadas desde una única interfaz.</p>
+            <p>Para partners o equipos que administran multiples cuentas bajo AWS Organizations. Este modo permite al agente consultar recursos en todas las cuentas vinculadas desde una unica interfaz.</p>
         </div>
 
         <div class="topic-card">
@@ -445,9 +446,9 @@
                 <span class="step-number">1</span>
                 <h3>Desplegar en la Cuenta Payer/Management</h3>
             </div>
-            <p>Ejecute el despliegue con el flag <code style="color:#3fb950">enableCrossAccount</code> habilitado:</p>
+            <p>Si seleccionaste la opcion multi-cuenta durante el <code style="color:#3fb950">setup.sh</code>, el despliegue ya incluye el flag <code style="color:#3fb950">enableCrossAccount=true</code>. Si deseas habilitarlo despues de la instalación inicial:</p>
             <div class="code-wrapper">
-                <code>cdk deploy -c adminEmail=admin@empresa.com -c language=es -c enableCrossAccount=true</code>
+                <code>npx cdk deploy -c adminEmail=admin@empresa.com -c language=es -c enableCrossAccount=true</code>
                 <button class="copy-btn" onclick="copyCode(this)">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copiar
                 </button>
@@ -459,7 +460,7 @@
                 <span class="step-number">2</span>
                 <h3>Configurar Acceso a Cuentas Linked</h3>
             </div>
-            <p>Una vez desplegado, el agente genera automáticamente un template de CloudFormation con un rol ReadOnly y los comandos necesarios para desplegarlo via StackSet (todas las cuentas) o individualmente en cada cuenta linked. Consulte la sección 7 de esta guia para el detalle completo.</p>
+            <p>El <code style="color:#3fb950">setup.sh</code> genera automáticamente el archivo <code style="color:#3fb950">launchpad-role.yaml</code> con el ARN real del Runtime role de tu cuenta. No es necesario pedirle al agente que genere el template. Al finalizar el despliegue, el script imprime los comandos necesarios para desplegar el rol via StackSet o individualmente.</p>
         </div>
 
         <div class="topic-card">
@@ -529,6 +530,12 @@
                         <td><span class="tag-optional">Opcional</span></td>
                         <td>false</td>
                         <td>Habilitar visibilidad multi-cuenta</td>
+                    </tr>
+                    <tr>
+                        <td style="color:var(--color-text-primary);font-weight:500">containerUri</td>
+                        <td><span class="tag-optional">Opcional</span></td>
+                        <td>(auto-generado)</td>
+                        <td>URI de la imagen Docker del agente en ECR</td>
                     </tr>
                 </tbody>
             </table>
@@ -617,23 +624,26 @@
         <h2 class="section-title">7. Configuración Multi-Cuenta (Detalle)</h2>
 
         <div class="text-block">
-            <p>Esta sección describe el flujo completo para habilitar el acceso a cuentas linked dentro de una organización de AWS. El proceso esta disenado para ser guiado por el propio agente.</p>
+            <p>Esta sección describe el flujo completo para habilitar el acceso a cuentas linked dentro de una organización de AWS. El archivo <code style="color:#3fb950">launchpad-role.yaml</code> se genera automáticamente durante el <code style="color:#3fb950">setup.sh</code> con el ARN real del Runtime role.</p>
         </div>
 
         <div class="topic-card">
             <h3>Flujo de Configuración</h3>
             <ul>
-                <li>El partner abre LaunchPad y solicita acceso a las otras cuentas de la organización</li>
-                <li>El agente lista las cuentas disponibles en AWS Organizations</li>
-                <li>El agente genera un template de CloudFormation que crea el rol <code style="color:#3fb950">LaunchPadReadOnlyRole</code></li>
-                <li>El partner ejecuta el comando proporcionado en CloudShell o su terminal local</li>
+                <li>El <code style="color:#3fb950">setup.sh</code> genera el archivo <code style="color:#3fb950">launchpad-role.yaml</code> con el ARN correcto del Runtime role</li>
+                <li>Al finalizar el despliegue, el script imprime los comandos de StackSet listos para ejecutar</li>
+                <li>El partner ejecuta los comandos en CloudShell o su terminal local</li>
                 <li>El agente verifica el acceso a cada cuenta configurada</li>
             </ul>
         </div>
 
+        <div class="note-box" style="border-left-color: #ff9900;">
+            <strong>Habilitar despues de la instalación inicial:</strong> Si no seleccionaste multi-cuenta durante el setup, puedes habilitarlo en cualquier momento ejecutando: <code style="color:#3fb950">npx cdk deploy -c enableCrossAccount=true</code> con los demas parámetros de tu despliegue.
+        </div>
+
         <div class="topic-card">
             <h3>Opcion A: StackSet (Todas las Cuentas)</h3>
-            <p>Despliega el rol en todas las cuentas de la organización de forma automática. Incluye auto-deployment para cuentas que se agreguen en el futuro.</p>
+            <p>Despliega el rol en todas las cuentas de la organización de forma automática. Incluye auto-deployment para cuentas que se agreguen en el futuro. Estos comandos son impresos automáticamente por el <code style="color:#3fb950">setup.sh</code>:</p>
             <div class="code-wrapper">
                 <code>aws cloudformation create-stack-set \
   --stack-set-name LaunchPadAccess \
@@ -766,7 +776,18 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copiar
                 </button>
             </div>
-            <p>Este comando elimina todos los recursos de AWS creados por el stack, incluyendo Cognito User Pool, API Gateway, CloudFront distribution, tablas DynamoDB, funciónes Lambda y los roles IAM asociados.</p>
+            <p>Este comando elimina todos los recursos de AWS creados por el stack, incluyendo Cognito User Pool, API Gateway, CloudFront distribution, tablas DynamoDB, funciones Lambda y los roles IAM asociados.</p>
+        </div>
+
+        <div class="topic-card">
+            <h3>Eliminar Repositorio ECR Privado</h3>
+            <p>El <code style="color:#3fb950">setup.sh</code> crea un repositorio ECR privado <code style="color:#3fb950">launchpad-agent</code> que no se elimina con <code style="color:#3fb950">cdk destroy</code>. Para eliminarlo manualmente:</p>
+            <div class="code-wrapper">
+                <code>aws ecr delete-repository --repository-name launchpad-agent --force --region us-east-1</code>
+                <button class="copy-btn" onclick="copyCode(this)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copiar
+                </button>
+            </div>
         </div>
 
         <div class="note-box">
@@ -776,8 +797,7 @@
     </div>
 
     <div class="footer">
-        <p>AWS LaunchPad | Built by Rayih Bou, Solutions Architect</p>
-        <p>Amazon Confidential</p>
+        <p>AWS LaunchPad - Deployment Guide | Built by Rayih Bou</p>
     </div>
 
     <script>
