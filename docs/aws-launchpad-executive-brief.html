@@ -197,7 +197,7 @@
 </head>
 <body>
     <div class="header">
-        <img src="https://a0.awsstatic.com/libra-css/images/logos/aws_smile-header-desktop-en-white_59x35.png" alt="AWS Logo">
+        <img src="https://assets.rayihbou.people.aws.dev/aws-logo.svg" alt="AWS Logo">
         <div>
             <h1>AWS LaunchPad</h1>
             <p class="subtitle">AI-Powered Cloud Operations Assistant</p>
@@ -351,26 +351,24 @@
                 </tr>
             </thead>
             <tbody>
-                <tr><td>Bajo</td><td>5</td><td>500</td><td>~$7/mes</td></tr>
-                <tr><td>Medio</td><td>20</td><td>2,500</td><td>~$35/mes</td></tr>
-                <tr><td>Alto</td><td>50</td><td>10,000</td><td>~$140/mes</td></tr>
+                <tr><td>Bajo</td><td>5</td><td>1,000</td><td>~$13/mes</td></tr>
+                <tr><td>Medio</td><td>20</td><td>4,000</td><td>~$53/mes</td></tr>
+                <tr><td>Alto</td><td>50</td><td>10,000</td><td>~$133/mes</td></tr>
             </tbody>
         </table>
         <div class="cost-note">
-            Bedrock tokens representan ~85% del costo total. Lambda, API Gateway, DynamoDB y S3 son practicamente gratis en estos volumenes.
+            Bedrock tokens representan ~90% del costo total. Lambda, API Gateway, DynamoDB y S3 son practicamente gratis en estos volumenes.
         </div>
 
         <!-- Despliegue -->
         <h2 class="section-title">Despliegue</h2>
         <p style="color: var(--color-text-secondary); font-size: 0.9rem; margin-bottom: 12px;">
-            Cuatro comandos para tener el asistente operativo en la cuenta del cliente:
+            Dos comandos para tener el asistente operativo en la cuenta del cliente:
         </p>
         <div class="code-wrapper">
-            <code># Despliegue estandar (cuenta unitaria)
-git clone https://github.com/aws-samples/aws-launchpad.git
-cd aws-launchpad && npm install
-cdk bootstrap
-cdk deploy -c adminEmail=admin@empresa.com -c language=es</code>
+            <code>git clone https://github.com/RayihBou/AWS-Launch-Pad.git
+cd AWS-Launch-Pad
+./setup.sh</code>
             <button class="copy-btn" onclick="copyCode(this)">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="9" y="9" width="13" height="13" rx="2"/>
@@ -378,6 +376,12 @@ cdk deploy -c adminEmail=admin@empresa.com -c language=es</code>
                 </svg>Copiar
             </button>
         </div>
+        <div class="cost-note">
+            El script interactivo configura automáticamente todos los componentes: dependencias, frontend, CDK bootstrap, imagen Docker del agente, infraestructura AWS, y endpoints del frontend. Tiempo estimado: 15-20 minutos.
+        </div>
+        <p style="color: var(--color-text-secondary); font-size: 0.85rem; margin-top: 20px; margin-bottom: 12px;">
+            <strong>Despliegue avanzado (CDK directo):</strong>
+        </p>
         <div class="code-wrapper" style="margin-top: 12px;">
             <code># Con visibilidad multi-cuenta (payer + linked accounts)
 cdk deploy -c adminEmail=admin@empresa.com -c language=es -c enableCrossAccount=true</code>
@@ -396,7 +400,7 @@ cdk deploy -c adminEmail=admin@empresa.com -c language=es -c enableCrossAccount=
 
     <div class="footer">
         <p>AWS LaunchPad | Built by Rayih Bou, Solutions Architect</p>
-        <p>Amazon Confidential</p>
+        <p>AWS LaunchPad - Executive Brief</p>
     </div>
 
     <script>
