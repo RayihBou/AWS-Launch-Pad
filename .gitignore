@@ -44,3 +44,6 @@ scripts/create-users.sh
 *.key
 cdk.context.json
 .aws/
+# OSPO internal documents
+ospo-*.md
+docs/aws-launchpad-executive-brief-en.html
