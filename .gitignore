@@ -47,3 +47,6 @@ cdk.context.json
 # OSPO internal documents
 ospo-*.md
 docs/aws-launchpad-executive-brief-en.html
+
+# Email templates (local only)
+invitation-template.html
