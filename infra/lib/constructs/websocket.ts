@@ -42,7 +42,6 @@ export class LaunchpadWebSocket extends Construct {
       environment: {
         COGNITO_CLIENT_ID: props.cognitoClientId,
         COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
-        AWS_REGION: region,
       },
     });
 
