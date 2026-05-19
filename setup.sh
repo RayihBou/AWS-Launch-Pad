@@ -89,9 +89,6 @@ if [[ "$CROSS_ACCOUNT" =~ ^[yY]$ ]]; then
 fi
 
 echo -e "${GREEN}[6/8] Deploying AWS LaunchPad...${NC}"
-# Install PyJWT for WebSocket authorizer Lambda (JWT signature verification)
-pip install PyJWT[crypto] -t scripts/websocket/ --quiet --upgrade 2>/dev/null || \
-  pip3 install PyJWT[crypto] -t scripts/websocket/ --quiet --upgrade 2>/dev/null
 npx cdk deploy $CDK_ARGS --require-approval never --outputs-file outputs.json
 
 echo -e "${GREEN}[7/8] Configuring frontend with stack outputs...${NC}"
