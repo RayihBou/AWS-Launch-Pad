@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import QRCode from 'qrcode';
 import { t } from '../i18n';
 import './Login.css';
 
@@ -27,6 +28,13 @@ export default function Login({ onLogin, onCompleteNewPassword, onVerifyTotp, er
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [totpCode, setTotpCode] = useState('');
+  const [qrDataUrl, setQrDataUrl] = useState('');
+
+  const otpUri = mfaSetupRequired ? `otpauth://totp/AWSLaunchPad:${email}?secret=${totpSecret}&issuer=AWSLaunchPad` : '';
+
+  useEffect(() => {
+    if (otpUri) QRCode.toDataURL(otpUri).then(setQrDataUrl);
+  }, [otpUri]);
 
   const handleLogin = (e) => { e.preventDefault(); onLogin(email, password); };
   const handleNewPassword = (e) => { e.preventDefault(); onCompleteNewPassword(newPassword); };
@@ -34,12 +42,11 @@ export default function Login({ onLogin, onCompleteNewPassword, onVerifyTotp, er
 
   const renderForm = () => {
     if (mfaSetupRequired) {
-      const otpUri = `otpauth://totp/AWSLaunchPad:${email}?secret=${totpSecret}&issuer=AWSLaunchPad`;
       return (
         <form onSubmit={handleTotp}>
           <p className="login__message">Configura MFA con tu app authenticator (Google Authenticator, Authy, etc.)</p>
           <div className="login__qr">
-            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpUri)}`} alt="QR Code" />
+            {qrDataUrl && <img src={qrDataUrl} alt="QR Code" />}
           </div>
           <p className="login__secret">Clave manual: <code>{totpSecret}</code></p>
           <input type="text" placeholder="Código de 6 dígitos" value={totpCode} autoFocus onChange={(e) => setTotpCode(e.target.value)} required autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" />

@@ -42,7 +42,7 @@ export class LaunchpadStack extends cdk.Stack {
     // S3 uploads bucket (shared between ApiProxy and AgentCore)
     const uploadsBucket = new s3.Bucket(this, 'UploadsBucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      encryption: s3.BucketEncryption.S3_MANAGED,
+      encryption: s3.BucketEncryption.KMS_MANAGED,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
       lifecycleRules: [{ expiration: cdk.Duration.days(1) }],
@@ -67,6 +67,8 @@ export class LaunchpadStack extends cdk.Stack {
       modelId,
       uploadsBucket: uploadsBucket.bucketName,
       enableCrossAccount: props.enableCrossAccount,
+      guardrailId: guardrail.guardrailId,
+      guardrailVersion: guardrail.guardrailVersion,
     });
 
     // API Proxy (HTTP API, DynamoDB) - receives real runtimeArn from AgentCore
@@ -79,6 +81,7 @@ export class LaunchpadStack extends cdk.Stack {
 
     // WebSocket (WS API, Authorizer, Handler, Warmup)
     const websocket = new LaunchpadWebSocket(this, 'WebSocket', {
+      cognitoUserPoolId: auth.userPool.userPoolId,
       cognitoClientId: auth.userPoolClient.userPoolClientId,
       runtimeArn: agentCore.runtime.agentRuntimeArn,
       conversationsTableName: apiProxy.conversationsTable.tableName,

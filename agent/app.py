@@ -21,6 +21,8 @@ LANGUAGE = os.environ.get('LANGUAGE', 'en')
 REGION = os.environ.get('AWS_REGION', 'us-east-1')
 GATEWAY_URL = os.environ.get('GATEWAY_ENDPOINT', '')
 MEMORY_ID = os.environ.get('MEMORY_ID', '')
+GUARDRAIL_ID = os.environ.get('GUARDRAIL_ID', '')
+GUARDRAIL_VERSION = os.environ.get('GUARDRAIL_VERSION', '')
 LANG_NAMES = {'en': 'English', 'es': 'Spanish', 'pt': 'Portuguese'}
 
 def strip_emojis(text):
@@ -629,7 +631,8 @@ def _init_local_mcp():
 
 def create_agent(token=None):
     _init_local_mcp()
-    model = BedrockModel(model_id=MODEL_ID, streaming=False)
+    model = BedrockModel(model_id=MODEL_ID, streaming=False,
+                         guardrail_config={'guardrailIdentifier': GUARDRAIL_ID, 'guardrailVersion': GUARDRAIL_VERSION} if GUARDRAIL_ID else None)
     all_tools = list(BOTO3_TOOLS) + list(_local_mcp_tools)
     gw_client = None
     # Gateway MCP (knowledge, pricing, cloudwatch, cloudtrail) - per request (needs token)

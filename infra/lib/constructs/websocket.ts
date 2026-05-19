@@ -8,10 +8,12 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as apigwv2Integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as apigwv2Authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 
 export interface LaunchpadWebSocketProps {
+  cognitoUserPoolId: string;
   cognitoClientId: string;
   runtimeArn: string;
   conversationsTableName: string;
@@ -36,8 +38,11 @@ export class LaunchpadWebSocket extends Construct {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../../scripts/websocket')),
       timeout: cdk.Duration.seconds(10),
       memorySize: 128,
+      logRetention: logs.RetentionDays.ONE_MONTH,
       environment: {
         COGNITO_CLIENT_ID: props.cognitoClientId,
+        COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
+        AWS_REGION: region,
       },
     });
 
@@ -48,6 +53,7 @@ export class LaunchpadWebSocket extends Construct {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../../scripts/websocket')),
       timeout: cdk.Duration.seconds(900),
       memorySize: 512,
+      logRetention: logs.RetentionDays.ONE_MONTH,
       environment: {
         RUNTIME_ARN: props.runtimeArn,
         QUALIFIER: 'DEFAULT',
@@ -124,6 +130,7 @@ export class LaunchpadWebSocket extends Construct {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../../scripts/warmup')),
       timeout: cdk.Duration.seconds(30),
       memorySize: 128,
+      logRetention: logs.RetentionDays.ONE_MONTH,
       environment: {
         RUNTIME_ARN: props.runtimeArn,
         QUALIFIER: 'DEFAULT',

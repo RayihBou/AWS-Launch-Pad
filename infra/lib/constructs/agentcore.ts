@@ -16,6 +16,8 @@ export interface LaunchpadAgentCoreProps {
   modelId: string;
   uploadsBucket: string;
   enableCrossAccount?: boolean;
+  guardrailId?: string;
+  guardrailVersion?: string;
 }
 
 export class LaunchpadAgentCore extends Construct {
@@ -113,6 +115,8 @@ export class LaunchpadAgentCore extends Construct {
         MEMORY_ID: this.memory.memoryId,
         UPLOADS_BUCKET: props.uploadsBucket,
         ...(props.enableCrossAccount ? { ENABLE_CROSS_ACCOUNT: 'true' } : {}),
+        ...(props.guardrailId && { GUARDRAIL_ID: props.guardrailId }),
+        ...(props.guardrailVersion && { GUARDRAIL_VERSION: props.guardrailVersion }),
       },
     });
 
