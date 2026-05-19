@@ -34,10 +34,20 @@ export class LaunchpadFrontend extends Construct {
     const oai = new cloudfront.OriginAccessIdentity(this, 'OAI');
     this.bucket.grantRead(oai);
 
+    const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, 'SecurityHeaders', {
+      securityHeadersBehavior: {
+        contentTypeOptions: { override: true },
+        frameOptions: { frameOption: cloudfront.HeadersFrameOption.DENY, override: true },
+        strictTransportSecurity: { accessControlMaxAge: cdk.Duration.days(365), includeSubdomains: true, override: true },
+        referrerPolicy: { referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN, override: true },
+      },
+    });
+
     const distributionProps: cloudfront.DistributionProps = {
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessIdentity(this.bucket, { originAccessIdentity: oai }),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        responseHeadersPolicy,
       },
       defaultRootObject: 'index.html',
       errorResponses: [{

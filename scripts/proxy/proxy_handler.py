@@ -19,19 +19,9 @@ QUALIFIER = os.environ.get('QUALIFIER', 'default_endpoint')
 UPLOADS_BUCKET = os.environ['UPLOADS_BUCKET']
 MAX_HISTORY = 50
 
-def decode_jwt(token):
-    try:
-        p = token.split('.')[1]
-        p += '=' * (4 - len(p) % 4)
-        return json.loads(base64.b64decode(p))
-    except: return {}
-
-def get_user(headers):
-    auth = headers.get('authorization', '')
-    token = auth.replace('Bearer ', '') if auth.startswith('Bearer ') else auth
-    claims = decode_jwt(token)
-    uid = claims.get('email', claims.get('sub', 'anonymous'))
-    return uid, token
+def get_user(event):
+    claims = event.get('requestContext', {}).get('authorizer', {}).get('jwt', {}).get('claims', {})
+    return claims.get('email', claims.get('sub', 'anonymous'))
 
 def load_history(uid, conv_id):
     try:
@@ -71,10 +61,9 @@ def list_conversations(uid):
     except: return []
 
 def handler(event, context):
-    headers = event.get('headers', {})
     method = event.get('requestContext', {}).get('http', {}).get('method', 'POST')
     path = event.get('requestContext', {}).get('http', {}).get('path', '')
-    uid, token = get_user(headers)
+    uid = get_user(event)
     qs = event.get('queryStringParameters') or {}
     conv_id = qs.get('conversationId', '')
 
@@ -145,7 +134,6 @@ def handler(event, context):
         agent_payload = {
             'input': {'text': text},
             'history': history[-20:],
-            'token': token,
             'actor_id': uid,
         }
         if attachment:
@@ -166,5 +154,5 @@ def handler(event, context):
         result_data['conversationId'] = conv_id
         return {'statusCode': 200, 'body': json.dumps(result_data)}
     except Exception as e:
-        logger.error(f"Error: {e}")
-        return {'statusCode': 200, 'body': json.dumps({'output': {'text': f'Error: {e}'}})}
+        logger.error(f"Chat error: {e}")
+        return {'statusCode': 200, 'body': json.dumps({'output': {'text': 'Error interno. Intenta de nuevo.'}})}

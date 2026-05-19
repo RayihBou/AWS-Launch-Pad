@@ -240,11 +240,18 @@ def generate_html_report(title: str, sections: str) -> str:
 @tool
 def fetch_aws_pricing_page(url: str) -> str:
     """Fetch an AWS pricing page and return its text content with resolved prices. Use for Bedrock pricing or any AWS service pricing when the Pricing API has no data."""
-    import urllib.request, json, gzip
-    if not url.startswith('https://aws.amazon.com/'):
-        return 'Error: Only aws.amazon.com URLs allowed'
+    import urllib.request, urllib.parse, json, gzip
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != 'https' or not parsed.hostname or not (parsed.hostname.endswith('.amazon.com') or parsed.hostname.endswith('.amazonaws.com')):
+        return 'Error: Only https://*.amazon.com or *.amazonaws.com URLs allowed'
+
+    class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            raise urllib.error.HTTPError(req.full_url, code, 'Redirects disabled', headers, fp)
+
+    opener = urllib.request.build_opener(NoRedirectHandler)
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-    html = urllib.request.urlopen(req, timeout=15).read().decode()
+    html = opener.open(req, timeout=15).read().decode()
     hashes = set(re.findall(r'priceOf!bedrockfoundationmodels/bedrockfoundationmodels!([^}!]+)', html))
     prices = {}
     if hashes:

@@ -28,6 +28,8 @@ export class LaunchpadAuth extends Construct {
       },
       mfa: cognito.Mfa.REQUIRED,
       mfaSecondFactor: { sms: false, otp: true },
+      advancedSecurityMode: cognito.AdvancedSecurityMode.ENFORCED,
+      deletionProtection: true,
       userInvitation: {
         emailSubject: 'Welcome to AWS LaunchPad - Your Access Credentials',
         emailBody: `<!DOCTYPE html>
@@ -72,7 +74,8 @@ export class LaunchpadAuth extends Construct {
     });
 
     this.userPoolClient = this.userPool.addClient('AppClient', {
-      authFlows: { userSrp: true, custom: true, userPassword: true },
+      authFlows: { userSrp: true, custom: true },
+      preventUserExistenceErrors: true,
       generateSecret: false,
     });
 

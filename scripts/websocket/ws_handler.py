@@ -89,7 +89,6 @@ def handler(event, context):
         # Get auth context from authorizer
         auth = event.get('requestContext', {}).get('authorizer', {})
         uid = auth.get('email', 'anonymous')
-        token = auth.get('token', '')
 
         # Parse message
         text = body.get('input', {}).get('text', '')
@@ -111,7 +110,7 @@ def handler(event, context):
 
             agent_payload = {
                 'input': {'text': text},
-                'history': history[-20:], 'token': token, 'actor_id': uid,
+                'history': history[-20:], 'actor_id': uid,
             }
             logger.info(f"Invoking agent: actor_id={uid}, text={text[:50]}, history_len={len(history)}, has_attachment={attachment is not None}")
             if attachment:
@@ -169,7 +168,7 @@ def handler(event, context):
             if 'timeout' in err_msg.lower() or 'timed out' in err_msg.lower():
                 user_msg = 'La consulta fue demasiado compleja y excedio el tiempo limite. Intenta dividirla en preguntas mas especificas, por ejemplo: "Revisa los servicios de seguridad" y luego "Analiza la configuracion de red".'
             else:
-                user_msg = 'Error procesando la solicitud. Intenta de nuevo con una consulta mas especifica.'
+                user_msg = 'Error procesando la solicitud. Intenta de nuevo.'
             send_to_client(api_client, connection_id, {
                 'type': 'error',
                 'output': {'text': user_msg},

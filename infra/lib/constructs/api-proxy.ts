@@ -11,12 +11,14 @@ import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as apigwv2Integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as apigwv2Authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as logs from 'aws-cdk-lib/aws-logs';
 
 export interface ApiProxyProps {
   userPool: cognito.UserPool;
   userPoolClient: cognito.UserPoolClient;
   runtimeArn: string;
   uploadsBucket: s3.Bucket;
+  frontendUrl?: string;
 }
 
 export class ApiProxy extends Construct {
@@ -36,6 +38,9 @@ export class ApiProxy extends Construct {
       sortKey: { name: 'conversationId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      pointInTimeRecovery: true,
+      deletionProtection: true,
     });
 
     // S3 uploads bucket (passed from parent stack)
@@ -48,6 +53,7 @@ export class ApiProxy extends Construct {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../../scripts/proxy')),
       timeout: cdk.Duration.seconds(120),
       memorySize: 256,
+      logRetention: logs.RetentionDays.ONE_MONTH,
       environment: {
         RUNTIME_ARN: props.runtimeArn,
         QUALIFIER: 'DEFAULT',
@@ -68,7 +74,8 @@ export class ApiProxy extends Construct {
     const httpApi = new apigwv2.HttpApi(this, 'HttpApi', {
       apiName: 'launchpad-api',
       corsPreflight: {
-        allowOrigins: ['*'],
+        allowOrigins: props.frontendUrl ? [props.frontendUrl] : ['*'],
+        allowCredentials: false,
         allowMethods: [
           apigwv2.CorsHttpMethod.POST, apigwv2.CorsHttpMethod.GET,
           apigwv2.CorsHttpMethod.DELETE, apigwv2.CorsHttpMethod.PATCH,

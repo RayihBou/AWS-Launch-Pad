@@ -1,35 +1,43 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
-import json, os, base64, time, logging
+import os, logging
+import jwt
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 COGNITO_CLIENT_ID = os.environ['COGNITO_CLIENT_ID']
+COGNITO_USER_POOL_ID = os.environ['COGNITO_USER_POOL_ID']
+AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
 
-def decode_jwt(token):
-    try:
-        p = token.split('.')[1]
-        p += '=' * (4 - len(p) % 4)
-        return json.loads(base64.b64decode(p))
-    except:
-        return None
+JWKS_URL = f"https://cognito-idp.{AWS_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}/.well-known/jwks.json"
+jwks_client = jwt.PyJWKClient(JWKS_URL, cache_keys=True)
+
+
+def _deny(method_arn):
+    return {'principalId': 'user', 'policyDocument': {'Version': '2012-10-17', 'Statement': [{'Action': 'execute-api:Invoke', 'Effect': 'Deny', 'Resource': method_arn}]}}
+
 
 def handler(event, context):
     qs = event.get('queryStringParameters') or {}
     token = qs.get('token', '')
     method_arn = event.get('methodArn', '')
-    claims = decode_jwt(token)
 
-    if not claims or claims.get('exp', 0) < time.time():
-        logger.info("Auth DENIED")
-        return {'principalId': 'user', 'policyDocument': {'Version': '2012-10-17', 'Statement': [{'Action': 'execute-api:Invoke', 'Effect': 'Deny', 'Resource': method_arn}]}}
-
-    if claims.get('aud') != COGNITO_CLIENT_ID:
-        logger.info(f"Audience mismatch: {claims.get('aud')}")
-        return {'principalId': 'user', 'policyDocument': {'Version': '2012-10-17', 'Statement': [{'Action': 'execute-api:Invoke', 'Effect': 'Deny', 'Resource': method_arn}]}}
+    try:
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        claims = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            audience=COGNITO_CLIENT_ID,
+            options={"require": ["exp", "aud"]},
+        )
+    except Exception as e:
+        logger.info(f"Auth DENIED: {e}")
+        return _deny(method_arn)
 
     email = claims.get('email', claims.get('sub', 'anonymous'))
+
     # Allow all routes on this API
     arn_parts = method_arn.split(':')
     region = arn_parts[3]
@@ -43,5 +51,5 @@ def handler(event, context):
     return {
         'principalId': email,
         'policyDocument': {'Version': '2012-10-17', 'Statement': [{'Action': 'execute-api:Invoke', 'Effect': 'Allow', 'Resource': resource_arn}]},
-        'context': {'email': email, 'token': token}
+        'context': {'email': email}
     }
