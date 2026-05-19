@@ -42,7 +42,7 @@ export class LaunchpadStack extends cdk.Stack {
     // S3 uploads bucket (shared between ApiProxy and AgentCore)
     const uploadsBucket = new s3.Bucket(this, 'UploadsBucket', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      encryption: s3.BucketEncryption.KMS_MANAGED,
+      encryption: s3.BucketEncryption.S3_MANAGED,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
       lifecycleRules: [{ expiration: cdk.Duration.days(1) }],
