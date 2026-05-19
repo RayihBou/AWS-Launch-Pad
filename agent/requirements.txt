@@ -6,7 +6,7 @@ bedrock-agentcore>=1.0.0
 strands-agents>=1.0.0
 strands-agents-tools>=0.1.0
 boto3>=1.35.0
-mcp>=1.0.0
+mcp>=1.27.1
 
 # AWS MCP servers (use latest available)
 awslabs.well-architected-security-mcp-server
