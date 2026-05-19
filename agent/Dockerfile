@@ -1,20 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-# Stage 1: Download arm64 dependencies on native host architecture
-FROM --platform=$BUILDPLATFORM python:3.12-slim AS builder
+FROM --platform=linux/arm64 python:3.12-slim AS builder
 WORKDIR /build
 COPY requirements.txt .
-RUN pip install --no-cache-dir --target /deps \
-    --platform manylinux2014_aarch64 \
-    --platform linux_aarch64 \
-    --only-binary=:all: \
-    --python-version 312 \
-    --implementation cp \
-    --abi cp312 \
-    -r requirements.txt
+RUN pip install --no-cache-dir --target /deps -r requirements.txt
 
-# Stage 2: arm64 runtime image
 FROM --platform=linux/arm64 python:3.12-slim
 RUN useradd -r -s /bin/false appuser
 RUN mkdir -p /tmp/.aws && chown appuser:appuser /tmp/.aws
