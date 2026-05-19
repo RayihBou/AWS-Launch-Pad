@@ -53,3 +53,11 @@ invitation-template.html
 
 # Security assessment (local only)
 Security Assessment Report*
+
+# Lambda bundled dependencies (installed by setup.sh)
+scripts/websocket/jwt/
+scripts/websocket/PyJWT*
+scripts/websocket/cryptography*
+scripts/websocket/cffi*
+scripts/websocket/_cffi*
+scripts/websocket/pycparser*
