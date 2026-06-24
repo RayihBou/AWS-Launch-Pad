@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "amazon-cognito-identity-js": "6.3.16",
+    "amazon-cognito-identity-js": "6.3.18",
     "qrcode": "1.5.4",
     "react": "18.3.1",
     "react-dom": "18.3.1",
