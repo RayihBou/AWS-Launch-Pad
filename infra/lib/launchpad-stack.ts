@@ -15,6 +15,12 @@ export interface LaunchpadStackProps extends cdk.StackProps {
   adminEmail: string;
   language?: string;
   modelId?: string;
+  /**
+   * Reuse an existing AgentCore Memory by name.
+   * Must match [a-zA-Z][a-zA-Z0-9_]{0,47} (letters, digits and underscore, max 48 chars).
+   * @default - deterministic name derived from the stack name
+   */
+  memoryName?: string;
   domainName?: string;
   hostedZoneId?: string;
   zoneName?: string;
@@ -66,6 +72,7 @@ export class LaunchpadStack extends cdk.Stack {
       language,
       modelId,
       uploadsBucket: uploadsBucket.bucketName,
+      memoryName: props.memoryName,
       enableCrossAccount: props.enableCrossAccount,
       guardrailId: guardrail.guardrailId,
       guardrailVersion: guardrail.guardrailVersion,
@@ -109,6 +116,10 @@ export class LaunchpadStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'GatewayId', { value: agentCore.gateway.gatewayId });
     new cdk.CfnOutput(this, 'GatewayUrl', { value: agentCore.gateway.gatewayUrl! });
     new cdk.CfnOutput(this, 'MemoryId', { value: agentCore.memory.memoryId });
+    new cdk.CfnOutput(this, 'MemoryName', {
+      value: agentCore.memory.memoryName,
+      description: 'Pass this value as -c memoryName=<name> to reuse this memory',
+    });
     new cdk.CfnOutput(this, 'Language', { value: language });
     new cdk.CfnOutput(this, 'ModelId', { value: modelId });
     new cdk.CfnOutput(this, 'RuntimeRoleArn', { value: agentCore.runtime.role.roleArn });

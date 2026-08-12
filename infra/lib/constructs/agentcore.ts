@@ -1,6 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 import * as path from 'path';
+import * as crypto from 'crypto';
 import { Construct } from 'constructs';
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -15,6 +16,14 @@ export interface LaunchpadAgentCoreProps {
   language: string;
   modelId: string;
   uploadsBucket: string;
+  /**
+   * Name of the AgentCore Memory resource.
+   * Must match [a-zA-Z][a-zA-Z0-9_]{0,47} (letters, digits and underscore only, max 48 chars).
+   * Provide an existing name to reuse a memory; otherwise a deterministic
+   * per-stack name is generated to avoid collisions between stacks.
+   * @default - `launchpad_<stackName>_<hash>`
+   */
+  memoryName?: string;
   enableCrossAccount?: boolean;
   guardrailId?: string;
   guardrailVersion?: string;
@@ -31,8 +40,14 @@ export class LaunchpadAgentCore extends Construct {
     const region = cdk.Stack.of(this).region;
 
     // --- Memory ---
+    // AgentCore Memory names must match [a-zA-Z][a-zA-Z0-9_]{0,47}: letters, digits
+    // and underscore only (no hyphens), max 48 chars. A hardcoded name collides with
+    // orphaned memories and prevents two stacks in the same account/region, so the
+    // default is derived deterministically from the stack name.
+    const memoryName = props.memoryName ?? defaultMemoryName(this);
+
     this.memory = new agentcore.Memory(this, 'Memory', {
-      memoryName: 'launchpad_memory',
+      memoryName,
       description: 'LaunchPad agent long-term memory',
       expirationDuration: cdk.Duration.days(365),
       memoryStrategies: [
@@ -228,4 +243,29 @@ export class LaunchpadAgentCore extends Construct {
       }));
     }
   }
+}
+
+/**
+ * Builds a deterministic, per-stack AgentCore Memory name.
+ *
+ * The AgentCore Memory API enforces the pattern `[a-zA-Z][a-zA-Z0-9_]{0,47}`:
+ * it must start with a letter and may only contain letters, digits and
+ * underscores (hyphens are rejected), with a maximum length of 48 characters.
+ *
+ * The name is stable across deployments of the same stack (so the memory is not
+ * recreated) but differs between stacks, which allows several LaunchPad stacks
+ * to coexist in the same account and region.
+ */
+function defaultMemoryName(scope: Construct): string {
+  const stack = cdk.Stack.of(scope);
+  const seed = cdk.Token.isUnresolved(stack.stackName)
+    ? cdk.Names.uniqueId(scope)
+    : stack.stackName;
+
+  const hash = crypto.createHash('sha256').update(seed).digest('hex').slice(0, 8);
+  const base = `launchpad_${seed}`.replace(/[^a-zA-Z0-9_]/g, '_');
+  // 48 chars total: base + '_' + 8-char hash
+  const maxBaseLength = 48 - hash.length - 1;
+
+  return `${base.slice(0, maxBaseLength)}_${hash}`;
 }

@@ -40,7 +40,9 @@ export class ApiProxy extends Construct {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
       pointInTimeRecovery: true,
-      deletionProtection: true,
+      // Must stay false to remain consistent with RemovalPolicy.DESTROY:
+      // deletion protection would block stack rollback and `cdk destroy`.
+      deletionProtection: false,
     });
 
     // S3 uploads bucket (passed from parent stack)

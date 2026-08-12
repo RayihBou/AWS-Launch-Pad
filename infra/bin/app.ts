@@ -15,6 +15,7 @@ if (!adminEmail) {
     adminEmail,
     language: app.node.tryGetContext('language') ?? 'en',
     modelId: app.node.tryGetContext('modelId'),
+    memoryName: app.node.tryGetContext('memoryName'),
     domainName: app.node.tryGetContext('domainName'),
     hostedZoneId: app.node.tryGetContext('hostedZoneId'),
     zoneName: app.node.tryGetContext('zoneName'),
