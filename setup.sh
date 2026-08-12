@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+set -o pipefail
 
 # Colors
 GREEN='\033[0;32m'
@@ -34,6 +35,16 @@ if [[ ! "$LANGUAGE" =~ ^(en|es|pt)$ ]]; then
   LANGUAGE="en"
 fi
 
+# Prompt for model ID
+while true; do
+  read -p "$(echo -e ${YELLOW}Bedrock model ID [us.anthropic.claude-sonnet-5]: ${NC})" MODEL_ID
+  MODEL_ID=${MODEL_ID:-us.anthropic.claude-sonnet-5}
+  if [[ "$MODEL_ID" =~ ^[A-Za-z0-9._:/-]+$ ]]; then
+    break
+  fi
+  echo -e "${RED}Invalid model ID. Allowed characters: letters, digits, and . _ : / -${NC}"
+done
+
 # Prompt for cross-account
 read -p "$(echo -e ${YELLOW}Enable cross-account visibility? \(y/n\) [n]: ${NC})" CROSS_ACCOUNT
 CROSS_ACCOUNT=${CROSS_ACCOUNT:-n}
@@ -42,6 +53,7 @@ echo ""
 echo -e "${GREEN}Configuration:${NC}"
 echo "  Admin Email: $ADMIN_EMAIL"
 echo "  Language: $LANGUAGE"
+echo "  Model ID: $MODEL_ID"
 echo "  Cross-Account: $CROSS_ACCOUNT"
 echo ""
 read -p "$(echo -e ${YELLOW}Proceed with deployment? \(y/n\) [y]: ${NC})" CONFIRM
@@ -52,7 +64,14 @@ if [[ ! "$CONFIRM" =~ ^[yY]$ ]]; then
 fi
 
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-REGION=${AWS_DEFAULT_REGION:-${AWS_REGION:-us-east-1}}
+
+# Region resolution order: AWS_DEFAULT_REGION -> AWS_REGION -> configured profile region -> us-east-1
+REGION="${AWS_DEFAULT_REGION:-${AWS_REGION:-}}"
+if [[ -z "$REGION" ]]; then
+  REGION="$(aws configure get region 2>/dev/null || true)"
+fi
+REGION="${REGION:-us-east-1}"
+
 LOCAL_IMAGE="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$LOCAL_REPO:latest"
 
 echo ""
@@ -83,13 +102,18 @@ docker tag $PUBLIC_IMAGE $LOCAL_IMAGE
 docker push $LOCAL_IMAGE
 
 # Build CDK context args
-CDK_ARGS="-c adminEmail=$ADMIN_EMAIL -c language=$LANGUAGE -c containerUri=$LOCAL_IMAGE"
+CDK_ARGS=(
+  -c "adminEmail=$ADMIN_EMAIL"
+  -c "language=$LANGUAGE"
+  -c "modelId=$MODEL_ID"
+  -c "containerUri=$LOCAL_IMAGE"
+)
 if [[ "$CROSS_ACCOUNT" =~ ^[yY]$ ]]; then
-  CDK_ARGS="$CDK_ARGS -c enableCrossAccount=true"
+  CDK_ARGS+=(-c "enableCrossAccount=true")
 fi
 
 echo -e "${GREEN}[6/8] Deploying AWS LaunchPad...${NC}"
-npx cdk deploy $CDK_ARGS --require-approval never --outputs-file outputs.json
+npx cdk deploy "${CDK_ARGS[@]}" --require-approval never --outputs-file outputs.json
 
 echo -e "${GREEN}[7/8] Configuring frontend with stack outputs...${NC}"
 USER_POOL_ID=$(node -e "console.log(require('./outputs.json').LaunchPadStack.UserPoolId)")
@@ -128,15 +152,23 @@ echo "  Log in and configure MFA (TOTP)."
 # Generate cross-account template if enabled
 if [[ "$CROSS_ACCOUNT" =~ ^[yY]$ ]]; then
   RUNTIME_ROLE_ARN=$(node -e "console.log(require('./outputs.json').LaunchPadStack.RuntimeRoleArn)")
-  sed "s|RUNTIME_ROLE_ARN_PLACEHOLDER|$RUNTIME_ROLE_ARN|g; s|ACCOUNT_ID_PLACEHOLDER|$ACCOUNT_ID|g" docs/launchpad-role.yaml > launchpad-role.yaml 2>/dev/null || \
-  cat > launchpad-role.yaml <<YAML
+  # docs/launchpad-role.yaml is parameterized (RuntimeRoleArn, ManagementAccountId),
+  # so it is used as-is and the values are passed via --parameter-overrides.
+  if [[ -f docs/launchpad-role.yaml ]]; then
+    cp docs/launchpad-role.yaml launchpad-role.yaml
+  else
+    cat > launchpad-role.yaml <<'YAML'
 AWSTemplateFormatVersion: '2010-09-09'
 Description: LaunchPad read-only cross-account role for linked accounts
+
 Parameters:
   ManagementAccountId:
     Type: String
-    Default: '$ACCOUNT_ID'
     Description: AWS Account ID where LaunchPad is deployed
+  RuntimeRoleArn:
+    Type: String
+    Description: ARN of the LaunchPad AgentCore Runtime execution role
+
 Resources:
   LaunchPadReadOnlyRole:
     Type: AWS::IAM::Role
@@ -147,20 +179,21 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              AWS: '$RUNTIME_ROLE_ARN'
+              AWS: !Ref RuntimeRoleArn
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/ReadOnlyAccess
 YAML
+  fi
   echo ""
   echo -e "${GREEN}  Cross-account template generated: launchpad-role.yaml${NC}"
   echo "  Runtime Role: $RUNTIME_ROLE_ARN"
   echo ""
   echo "  Deploy to a single linked account:"
-  echo "    aws cloudformation deploy --template-file launchpad-role.yaml --stack-name LaunchPadAccess --capabilities CAPABILITY_NAMED_IAM"
+  echo "    aws cloudformation deploy --template-file launchpad-role.yaml --stack-name LaunchPadAccess --capabilities CAPABILITY_NAMED_IAM --parameter-overrides RuntimeRoleArn=$RUNTIME_ROLE_ARN ManagementAccountId=$ACCOUNT_ID"
   echo ""
   echo "  Deploy to all accounts via StackSet (from management account):"
-  echo "    aws cloudformation create-stack-set --stack-set-name LaunchPadAccess --template-body file://launchpad-role.yaml --capabilities CAPABILITY_NAMED_IAM --permission-model SERVICE_MANAGED --auto-deployment Enabled=true,RetainStacksOnAccountRemoval=false"
+  echo "    aws cloudformation create-stack-set --stack-set-name LaunchPadAccess --template-body file://launchpad-role.yaml --capabilities CAPABILITY_NAMED_IAM --permission-model SERVICE_MANAGED --auto-deployment Enabled=true,RetainStacksOnAccountRemoval=false --parameters ParameterKey=RuntimeRoleArn,ParameterValue=$RUNTIME_ROLE_ARN ParameterKey=ManagementAccountId,ParameterValue=$ACCOUNT_ID"
   echo "    aws cloudformation create-stack-instances --stack-set-name LaunchPadAccess --deployment-targets OrganizationalUnitIds=YOUR_OU_ID --regions us-east-1"
 fi
 echo ""

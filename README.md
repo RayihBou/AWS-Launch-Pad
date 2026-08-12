@@ -56,6 +56,7 @@ cdk deploy -c adminEmail=admin@example.com -c language=es
 | `adminEmail` | Yes | - | Admin email for Cognito |
 | `language` | No | `en` | UI language (en/es/pt) |
 | `enableCrossAccount` | No | `false` | Multi-account visibility |
+| `modelId` | No | `us.anthropic.claude-sonnet-5` | Bedrock model or inference profile ID |
 | `domainName` | No | - | Custom domain |
 | `hostedZoneId` | No | - | Route 53 Hosted Zone ID |
 | `zoneName` | No | - | Route 53 zone name |
@@ -114,7 +115,7 @@ The solution deploys entirely within the customer's AWS account. No data leaves 
 |-----------|---------|
 | Frontend | React + Vite → S3 + CloudFront |
 | Agent | Bedrock AgentCore Runtime (Docker arm64, Strands SDK) |
-| Model | Claude Sonnet 4.6 via Amazon Bedrock (configurable) |
+| Model | Claude Sonnet 5 via Amazon Bedrock (configurable) |
 | MCP Tools | 6 local servers (stdio) + 5 Gateway targets + 15 boto3 tools |
 | Chat API | WebSocket API Gateway (Lambda Authorizer, 900s timeout) |
 | REST API | HTTP API Gateway (Cognito JWT auth) |
@@ -139,21 +140,24 @@ The solution deploys entirely within the customer's AWS account. No data leaves 
 - **No static credentials:** All components use IAM Roles with temporary credentials via STS
 - **MFA mandatory:** Cognito TOTP required for all users
 - **Least privilege IAM:** Separate policies per MCP server and tool category
-- **MCP server protections:** IAM readonly flag, ALLOW_WRITE=false where supported
+- **MCP server protections:** The IAM MCP server runs read-only by default (no flag required); the ECS MCP server runs with `ALLOW_WRITE=false` and `ALLOW_SENSITIVE_DATA=false`; `support:CreateCase` and `support:AddCommunicationToCase` were removed from the Runtime role, so AWS Support write tools are blocked at the IAM role level
+- **Single write grant:** The only write permission on the Runtime role is `s3:PutObject`, scoped to the `reports/` prefix of the uploads bucket, used by HTML report generation
 - **Content filtering:** Bedrock Guardrails blocks prompt injection, PII redaction, off-topic requests
 - **Ephemeral file handling:** Attachments auto-delete after processing, reports expire in 24 hours
 
 ## Cost Estimation
 
-Based on AWS Pricing API (us-east-1, on-demand). Bedrock tokens dominate ~85% of total cost.
+Based on AWS Pricing API (us-east-1, on-demand). Bedrock tokens dominate ~86% of total cost.
 
 | Usage Level | Users | Messages/month | Estimated Cost |
 |-------------|-------|----------------|----------------|
-| Low | 5 | 500 | ~$7/month |
-| Medium | 20 | 2,500 | ~$35/month |
-| High | 50 | 10,000 | ~$140/month |
+| Low | 5 | 1,000 | $9.37/month |
+| Medium | 20 | 4,000 | $37.29/month |
+| High | 50 | 10,000 | $93.08/month |
 
 Cognito is free up to 10,000 MAU. Lambda, API Gateway, DynamoDB, and S3 are effectively free at these volumes. See [docs/cost-estimation.html](docs/cost-estimation.html) for detailed breakdown.
+
+> **Note:** These figures already reflect Claude Sonnet 5 pricing ($2.00 input / $10.00 output per 1M tokens), which accounts for approximately 86% of the total cost.
 
 ## Project Structure
 

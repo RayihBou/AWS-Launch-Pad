@@ -145,14 +145,15 @@ export class LaunchpadAgentCore extends Construct {
       resources: [this.memory.memoryArn],
     }));
 
-    // Grant read-only access to AWS services (tools + MCP servers)
+    // Grant read-only access to AWS services (tools + MCP servers).
+    // This statement must remain read-only: the agent never performs write or
+    // mutating actions. The only write grant lives in ReportUploadWriteAccess below.
     this.runtime.addToRolePolicy(new iam.PolicyStatement({
       sid: 'ReadOnlyToolAccess',
       actions: [
         // S3
         's3:ListAllMyBuckets', 's3:ListBucket', 's3:GetObject', 's3:GetBucketLocation',
         's3:GetBucketPublicAccessBlock', 's3:GetEncryptionConfiguration', 's3:GetBucketVersioning',
-        's3:PutObject',
         // EC2
         'ec2:DescribeInstances', 'ec2:DescribeSecurityGroups', 'ec2:DescribeVpcs',
         'ec2:DescribeSubnets', 'ec2:DescribeRouteTables', 'ec2:DescribeNatGateways',
@@ -190,7 +191,7 @@ export class LaunchpadAgentCore extends Construct {
         'eks:ListClusters', 'eks:DescribeCluster', 'eks:ListNodegroups', 'eks:DescribeNodegroup',
         // Support
         'support:DescribeCases', 'support:DescribeCommunications', 'support:DescribeServices',
-        'support:DescribeSeverityLevels', 'support:CreateCase', 'support:AddCommunicationToCase',
+        'support:DescribeSeverityLevels',
         // Billing
         'budgets:DescribeBudgets', 'budgets:DescribeBudgetPerformanceHistory',
         'compute-optimizer:GetEnrollmentStatus', 'compute-optimizer:GetRecommendationSummaries',
@@ -203,6 +204,14 @@ export class LaunchpadAgentCore extends Construct {
         'network-firewall:ListFirewalls', 'network-firewall:DescribeFirewall',
       ],
       resources: ['*'],
+    }));
+
+    // Sole write grant: generate_html_report (agent/app.py) writes the report object
+    // to the uploads bucket under the reports/ prefix and returns a presigned GET URL.
+    this.runtime.addToRolePolicy(new iam.PolicyStatement({
+      sid: 'ReportUploadWriteAccess',
+      actions: ['s3:PutObject'],
+      resources: [`arn:aws:s3:::${props.uploadsBucket}/reports/*`],
     }));
 
     // Cross-account policies (only when enabled)

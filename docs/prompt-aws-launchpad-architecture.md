@@ -31,7 +31,7 @@
 | dynamodb | aws-cloud | dynamodb | Amazon DynamoDB | Conversations | 680 | 380 |
 | s3-uploads | aws-cloud | s3 | Amazon S3 | Uploads Bucket | 680 | 580 |
 | bedrock-runtime | aws-cloud | bedrock | Amazon Bedrock | AgentCore Runtime | 900 | 180 |
-| bedrock-model | aws-cloud | bedrock | Amazon Bedrock | Claude Sonnet 4.6 | 900 | 380 |
+| bedrock-model | aws-cloud | bedrock | Amazon Bedrock | Claude Sonnet 5 | 900 | 380 |
 | bedrock-memory | aws-cloud | bedrock | Amazon Bedrock | AgentCore Memory | 900 | 580 |
 | bedrock-gateway | aws-cloud | bedrock | Amazon Bedrock | AgentCore Gateway | 1120 | 180 |
 | lambda-mcp-local | aws-cloud | bedrock | Local MCP Servers | Security, Network, Billing, IAM, Support, ECS | 1120 | 380 |

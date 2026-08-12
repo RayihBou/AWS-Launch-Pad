@@ -13,7 +13,7 @@ AWS LaunchPad is a GenAI assistant deployed in customer AWS accounts using Bedro
 5. WS Handler ↔ DynamoDB (conversation history)
 6. WS Handler → S3 (download attachments via presigned URLs)
 7. WS Handler → Bedrock AgentCore Runtime (Strands SDK agent in Docker)
-8. AgentCore Runtime → Bedrock Claude Sonnet 4.6 (LLM inference)
+8. AgentCore Runtime → Bedrock Claude Sonnet 5 (LLM inference)
 9. AgentCore Runtime → AgentCore Gateway (MCP tools)
 10. AgentCore Gateway → 4 Lambda MCP functions (CloudWatch, Pricing, Security, CloudTrail)
 11. AgentCore Gateway → AWS Knowledge MCP (remote documentation)

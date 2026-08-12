@@ -7,14 +7,14 @@
     "cdk": "cdk"
   },
   "dependencies": {
-    "@aws-cdk/aws-bedrock-agentcore-alpha": "2.250.0-alpha.0",
-    "aws-cdk-lib": "2.250.0",
+    "@aws-cdk/aws-bedrock-agentcore-alpha": "2.264.0-alpha.0",
+    "aws-cdk-lib": "2.264.0",
     "constructs": "10.6.0",
     "source-map-support": "0.5.21"
   },
   "devDependencies": {
     "@types/node": "22.19.17",
-    "aws-cdk": "2.1118.4",
+    "aws-cdk": "2.1136.0",
     "ts-node": "10.9.2",
     "typescript": "5.7.3"
   }

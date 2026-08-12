@@ -6,7 +6,7 @@ set -e
 REGION="${AWS_REGION:-us-east-1}"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 LANGUAGE="${LANGUAGE:-es}"
-MODEL_ID="${MODEL_ID:-us.anthropic.claude-sonnet-4-20250514-v1:0}"
+MODEL_ID="${MODEL_ID:-us.anthropic.claude-sonnet-5}"
 
 # Get CDK outputs
 STACK_OUTPUTS=$(aws cloudformation describe-stacks --stack-name LaunchpadStack --region $REGION --query 'Stacks[0].Outputs' --output json)
