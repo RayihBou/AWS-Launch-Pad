@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT-0
 import { Construct } from 'constructs';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
+import { deterministicName } from '../naming';
 
 export class LaunchpadGuardrail extends Construct {
   public readonly guardrailId: string;
@@ -11,7 +12,13 @@ export class LaunchpadGuardrail extends Construct {
     super(scope, id);
 
     const guardrail = new bedrock.CfnGuardrail(this, 'Guardrail', {
-      name: 'launchpad-guardrail',
+      // Guardrail names must match ^[0-9a-zA-Z-_]+$ (max 50 chars). A per-stack
+      // name avoids clashing with a guardrail orphaned by a previous deployment.
+      name: deterministicName(this, {
+        prefix: 'launchpad-guardrail',
+        separator: '-',
+        maxLength: 50,
+      }),
       blockedInputMessaging: 'I can only assist with AWS cloud operations. This request is outside my scope.',
       blockedOutputsMessaging: 'I cannot provide this type of response. Please ask about AWS cloud operations.',
       contentPolicyConfig: {

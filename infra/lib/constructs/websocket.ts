@@ -11,6 +11,7 @@ import * as apigwv2Authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
+import { deterministicName } from '../naming';
 
 export interface LaunchpadWebSocketProps {
   cognitoUserPoolId: string;
@@ -77,7 +78,13 @@ export class LaunchpadWebSocket extends Construct {
 
     // WebSocket API
     this.wsApi = new apigwv2.WebSocketApi(this, 'WsApi', {
-      apiName: 'launchpad-ws',
+      // Per-stack name so two LaunchPad stacks do not produce homonymous APIs
+      // in the same account and region (API Gateway allows duplicate names).
+      apiName: deterministicName(this, {
+        prefix: 'launchpad-ws',
+        separator: '-',
+        maxLength: 64,
+      }),
     });
 
     this.wsStage = new apigwv2.WebSocketStage(this, 'WsStage', {

@@ -1,13 +1,13 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 import * as path from 'path';
-import * as crypto from 'crypto';
 import { Construct } from 'constructs';
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as agentcore from '@aws-cdk/aws-bedrock-agentcore-alpha';
+import { deterministicName } from '../naming';
 
 export interface LaunchpadAgentCoreProps {
   userPool: cognito.UserPool;
@@ -44,7 +44,11 @@ export class LaunchpadAgentCore extends Construct {
     // and underscore only (no hyphens), max 48 chars. A hardcoded name collides with
     // orphaned memories and prevents two stacks in the same account/region, so the
     // default is derived deterministically from the stack name.
-    const memoryName = props.memoryName ?? defaultMemoryName(this);
+    const memoryName = props.memoryName ?? deterministicName(this, {
+      prefix: 'launchpad',
+      separator: '_',
+      maxLength: 48,
+    });
 
     this.memory = new agentcore.Memory(this, 'Memory', {
       memoryName,
@@ -56,8 +60,14 @@ export class LaunchpadAgentCore extends Construct {
     });
 
     // --- Gateway with Custom JWT (Cognito) ---
+    // Gateway names must match ^([0-9a-zA-Z][-]?){1,48}$: alphanumeric characters
+    // with single hyphens between them (no underscores), max 48 chars.
     this.gateway = new agentcore.Gateway(this, 'Gateway', {
-      gatewayName: 'launchpad-gateway',
+      gatewayName: deterministicName(this, {
+        prefix: 'launchpad-gateway',
+        separator: '-',
+        maxLength: 48,
+      }),
       authorizerConfiguration: agentcore.GatewayAuthorizer.usingCustomJwt({
         discoveryUrl: `https://cognito-idp.${region}.amazonaws.com/${props.userPool.userPoolId}/.well-known/openid-configuration`,
         allowedAudience: [props.userPoolClient.userPoolClientId],
@@ -120,7 +130,14 @@ export class LaunchpadAgentCore extends Construct {
     const artifact = agentcore.AgentRuntimeArtifact.fromImageUri(containerUri);
 
     this.runtime = new agentcore.Runtime(this, 'Runtime', {
-      runtimeName: 'launchpad_agent',
+      // Runtime names must match ^[a-zA-Z][a-zA-Z0-9_]{0,47}$: they start with a
+      // letter and only allow letters, digits and underscores (no hyphens),
+      // which is a different alphabet from the Gateway name above.
+      runtimeName: deterministicName(this, {
+        prefix: 'launchpad_agent',
+        separator: '_',
+        maxLength: 48,
+      }),
       agentRuntimeArtifact: artifact,
       description: 'LaunchPad Strands SDK agent',
       environmentVariables: {
@@ -245,27 +262,3 @@ export class LaunchpadAgentCore extends Construct {
   }
 }
 
-/**
- * Builds a deterministic, per-stack AgentCore Memory name.
- *
- * The AgentCore Memory API enforces the pattern `[a-zA-Z][a-zA-Z0-9_]{0,47}`:
- * it must start with a letter and may only contain letters, digits and
- * underscores (hyphens are rejected), with a maximum length of 48 characters.
- *
- * The name is stable across deployments of the same stack (so the memory is not
- * recreated) but differs between stacks, which allows several LaunchPad stacks
- * to coexist in the same account and region.
- */
-function defaultMemoryName(scope: Construct): string {
-  const stack = cdk.Stack.of(scope);
-  const seed = cdk.Token.isUnresolved(stack.stackName)
-    ? cdk.Names.uniqueId(scope)
-    : stack.stackName;
-
-  const hash = crypto.createHash('sha256').update(seed).digest('hex').slice(0, 8);
-  const base = `launchpad_${seed}`.replace(/[^a-zA-Z0-9_]/g, '_');
-  // 48 chars total: base + '_' + 8-char hash
-  const maxBaseLength = 48 - hash.length - 1;
-
-  return `${base.slice(0, maxBaseLength)}_${hash}`;
-}

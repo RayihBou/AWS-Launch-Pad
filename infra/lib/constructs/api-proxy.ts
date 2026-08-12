@@ -12,6 +12,7 @@ import * as apigwv2Integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations'
 import * as apigwv2Authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import { deterministicName } from '../naming';
 
 export interface ApiProxyProps {
   userPool: cognito.UserPool;
@@ -74,7 +75,13 @@ export class ApiProxy extends Construct {
 
     // API Gateway HTTP API with Cognito JWT authorizer
     const httpApi = new apigwv2.HttpApi(this, 'HttpApi', {
-      apiName: 'launchpad-api',
+      // Per-stack name so two LaunchPad stacks do not produce homonymous APIs
+      // in the same account and region (API Gateway allows duplicate names).
+      apiName: deterministicName(this, {
+        prefix: 'launchpad-api',
+        separator: '-',
+        maxLength: 64,
+      }),
       corsPreflight: {
         allowOrigins: props.frontendUrl ? [props.frontendUrl] : ['*'],
         allowCredentials: false,
