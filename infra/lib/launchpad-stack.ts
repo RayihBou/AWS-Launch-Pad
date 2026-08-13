@@ -8,6 +8,7 @@ import { LaunchpadFrontend } from './constructs/frontend';
 import { LaunchpadGuardrail } from './constructs/guardrail';
 import { McpLambdas } from './constructs/mcp-lambdas';
 import { ApiProxy } from './constructs/api-proxy';
+import { LaunchpadPreflight } from './constructs/preflight';
 import { LaunchpadAgentCore } from './constructs/agentcore';
 import { LaunchpadWebSocket } from './constructs/websocket';
 
@@ -25,6 +26,17 @@ export interface LaunchpadStackProps extends cdk.StackProps {
   hostedZoneId?: string;
   zoneName?: string;
   enableCrossAccount?: boolean;
+  /**
+   * Accept the Anthropic end-user terms during the Bedrock model access
+   * preflight. Requires the company detail properties below.
+   * @default false
+   */
+  acceptAnthropicTerms?: boolean;
+  companyName?: string;
+  companyWebsite?: string;
+  intendedUsers?: string;
+  industryOption?: string;
+  useCases?: string;
 }
 
 export class LaunchpadStack extends cdk.Stack {
@@ -60,6 +72,19 @@ export class LaunchpadStack extends cdk.Stack {
       }],
     });
 
+    // Bedrock model access preflight - must succeed before anything that
+    // depends on the model is created, so the stack fails fast with an
+    // actionable message instead of deploying and failing at runtime.
+    const preflight = new LaunchpadPreflight(this, 'Preflight', {
+      modelId,
+      acceptAnthropicTerms: props.acceptAnthropicTerms,
+      companyName: props.companyName,
+      companyWebsite: props.companyWebsite,
+      intendedUsers: props.intendedUsers,
+      industryOption: props.industryOption,
+      useCases: props.useCases,
+    });
+
     // AgentCore (Runtime, Gateway, Memory) - created before ApiProxy to provide runtimeArn
     const agentCore = new LaunchpadAgentCore(this, 'AgentCore', {
       userPool: auth.userPool,
@@ -77,6 +102,9 @@ export class LaunchpadStack extends cdk.Stack {
       guardrailId: guardrail.guardrailId,
       guardrailVersion: guardrail.guardrailVersion,
     });
+
+    // Nothing in AgentCore is created until the model access check succeeds.
+    agentCore.node.addDependency(preflight);
 
     // API Proxy (HTTP API, DynamoDB) - receives real runtimeArn from AgentCore
     const apiProxy = new ApiProxy(this, 'ApiProxy', {

@@ -46,7 +46,7 @@ TOOLS: You have MCP tools (AWS documentation, pricing, security assessments) and
 COST ANALYSIS: For ANY question about AWS costs, billing, spending, or consumption, ALWAYS use the get_cost_summary tool FIRST. It connects to AWS Cost Explorer and returns real cost data. Use it without service_filter for general overview, or with service_filter (e.g. 'Amazon QuickSight', 'AWS Lambda', 'Amazon S3') for per-service breakdown by usage type. NEVER say you don't have access to Cost Explorer - you DO have it via get_cost_summary.
 PRICING FALLBACK: When the AWS Pricing API does not return data for a service, use the fetch_aws_pricing_page tool to fetch the official pricing page directly from aws.amazon.com. Always use the Spanish version of the URL (add /es/ after the domain) as it contains static pricing data. Construct the URL based on the service name, for example: https://aws.amazon.com/es/bedrock/pricing/ or https://aws.amazon.com/es/lambda/pricing/. Do NOT tell the user that pricing is unavailable without first trying to fetch the official page. When you obtain pricing from the official AWS page, present it as official pricing, not as "reference" or "estimated" data.
 BEDROCK PRICING REFERENCE (us-east-1, on-demand, per 1M tokens):
-- Claude Sonnet 5: input $2.00, output $10.00
+- Claude Sonnet 5: input $2.20, output $11.00
 - Claude Sonnet 4.6: input $3.00, output $15.00
 - Claude Sonnet 4.6 Long Context: input $6.00, output $22.50
 - Claude Sonnet 4.5: input $3.00, output $15.00

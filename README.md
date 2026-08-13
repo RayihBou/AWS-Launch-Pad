@@ -60,6 +60,20 @@ cdk deploy -c adminEmail=admin@example.com -c language=es
 | `domainName` | No | - | Custom domain |
 | `hostedZoneId` | No | - | Route 53 Hosted Zone ID |
 | `zoneName` | No | - | Route 53 zone name |
+| `acceptAnthropicTerms` | No | `false` | Accept the Anthropic terms automatically during preflight |
+| `companyName` | No | - | Company name for the Anthropic terms form |
+| `companyWebsite` | No | - | Company website (full URL) for the Anthropic terms form |
+| `intendedUsers` | No | - | Intended users: `0` internal, `1` external, `2` both |
+| `industryOption` | No | - | Industry for the Anthropic terms form (e.g. `Technology`) |
+| `useCases` | No | - | Description of the intended use cases |
+
+The last six parameters are only needed if the account has not accepted the Anthropic terms form yet. If model access is already granted, omit them.
+
+### Bedrock Model Access Preflight
+
+The stack includes a Custom Resource that validates access to the configured Bedrock model before the AgentCore Runtime is created: it checks availability, confirms the model is really invocable with a minimal Converse ping, and fails the deployment fast with an actionable message (including the exact AWS CLI command to fix it) instead of deploying a runtime that breaks on the first message. `setup.sh` runs the same validation as its first step, before any build or deploy; if access is missing it asks for the terms form details interactively (company name, website, intended users, industry, use cases) and submits them through the Bedrock API. In `cdk deploy`, the equivalent unattended path is `-c acceptAnthropicTerms=true` plus the company parameters listed above.
+
+Since October 2025 Bedrock enables serverless models by default in new accounts, so in most accounts the preflight just confirms access and asks for nothing.
 
 ### Post-deployment
 
@@ -147,17 +161,17 @@ The solution deploys entirely within the customer's AWS account. No data leaves 
 
 ## Cost Estimation
 
-Based on AWS Pricing API (us-east-1, on-demand). Bedrock tokens dominate ~86% of total cost.
+Based on AWS Pricing API (us-east-1, on-demand). Bedrock tokens dominate ~87% of total cost.
 
 | Usage Level | Users | Messages/month | Estimated Cost |
 |-------------|-------|----------------|----------------|
-| Low | 5 | 1,000 | $9.37/month |
-| Medium | 20 | 4,000 | $37.29/month |
-| High | 50 | 10,000 | $93.08/month |
+| Low | 5 | 1,000 | $10.17/month |
+| Medium | 20 | 4,000 | $40.49/month |
+| High | 50 | 10,000 | $101.08/month |
 
 Cognito is free up to 10,000 MAU. Lambda, API Gateway, DynamoDB, and S3 are effectively free at these volumes. See [docs/cost-estimation.html](docs/cost-estimation.html) for detailed breakdown.
 
-> **Note:** These figures already reflect Claude Sonnet 5 pricing ($2.00 input / $10.00 output per 1M tokens), which accounts for approximately 86% of the total cost.
+> **Note:** These figures reflect Claude Sonnet 5 regional pricing in us-east-1 ($2.20 input / $11.00 output per 1M tokens), which is the rate that applies to the `us.anthropic.claude-sonnet-5` inference profile used by this stack and accounts for approximately 87% of the total cost. The `global.anthropic.claude-sonnet-5` inference profile is 10% cheaper ($2.00 input / $10.00 output) in exchange for routing requests without geographic restriction.
 
 ## Project Structure
 
@@ -174,6 +188,7 @@ scripts/                # Lambda handlers
   websocket/            # ws_handler.py, authorizer.py
   proxy/                # proxy_handler.py
   warmup/               # warmup_handler.py
+  preflight/            # preflight_handler.py (Bedrock model access check)
 mcp-lambdas/            # Gateway MCP Lambda handlers
   cloudwatch/           # Metrics, alarms, logs
   cloudtrail/           # Audit events
@@ -182,7 +197,7 @@ mcp-lambdas/            # Gateway MCP Lambda handlers
 infra/                  # CDK infrastructure
   bin/app.ts            # CDK app entry point
   lib/launchpad-stack.ts
-  lib/constructs/       # auth, agentcore, websocket, api-proxy, frontend, guardrail, mcp-lambdas
+  lib/constructs/       # auth, agentcore, websocket, api-proxy, frontend, guardrail, mcp-lambdas, preflight
 docs/                   # Architecture diagram, cost estimation
 ```
 

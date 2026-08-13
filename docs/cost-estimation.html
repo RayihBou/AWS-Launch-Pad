@@ -119,32 +119,32 @@
         <div class="summary-cards">
             <div class="summary-card">
                 <div class="label">Uso Bajo</div>
-                <div class="value">$9.37</div>
+                <div class="value">$10.17</div>
                 <div class="detail">5 usuarios / 1,000 mensajes</div>
             </div>
             <div class="summary-card">
                 <div class="label">Uso Medio</div>
-                <div class="value">$37.29</div>
+                <div class="value">$40.49</div>
                 <div class="detail">20 usuarios / 4,000 mensajes</div>
             </div>
             <div class="summary-card">
                 <div class="label">Uso Alto</div>
-                <div class="value">$93.08</div>
+                <div class="value">$101.08</div>
                 <div class="detail">50 usuarios / 10,000 mensajes</div>
             </div>
             <div class="summary-card">
                 <div class="label">Costo Dominante</div>
-                <div class="value">~86%</div>
+                <div class="value">~87%</div>
                 <div class="detail">Bedrock (Claude Sonnet 5)</div>
             </div>
         </div>
 
-        <div class="section-title">Distribucion de Costos (Uso Medio - $37.29/mes)</div>
+        <div class="section-title">Distribucion de Costos (Uso Medio - $40.49/mes)</div>
         <div class="bar-container">
-            <div class="bar-segment" style="width:85.8%;background:var(--color-aws-orange)">Bedrock Tokens 85.8%</div>
-            <div class="bar-segment" style="width:13.1%;background:#3fb950">AgentCore 13.1%</div>
+            <div class="bar-segment" style="width:86.9%;background:var(--color-aws-orange)">Bedrock Tokens 86.9%</div>
+            <div class="bar-segment" style="width:12.0%;background:#3fb950">AgentCore 12.0%</div>
             <div class="bar-segment" style="width:0.4%;background:#58a6ff">Lambda</div>
-            <div class="bar-segment" style="width:0.7%;background:#bc8cff">Otros</div>
+            <div class="bar-segment" style="width:0.6%;background:#bc8cff">Otros</div>
         </div>
         <p class="note">Los tokens de Bedrock (Claude Sonnet 5) representan la gran mayoria del costo. Todos los demas servicios son marginales en estos volumenes.</p>
 
@@ -190,8 +190,8 @@
                 <tr><th>Servicio</th><th>Metrica</th><th>Precio Unitario</th><th>Fuente</th></tr>
             </thead>
             <tbody>
-                <tr><td>Bedrock Claude Sonnet 5</td><td>Input tokens</td><td>$2.00 / 1M tokens</td><td>AWS Pricing API</td></tr>
-                <tr><td>Bedrock Claude Sonnet 5</td><td>Output tokens</td><td>$10.00 / 1M tokens</td><td>AWS Pricing API</td></tr>
+                <tr><td>Bedrock Claude Sonnet 5</td><td>Input tokens (invocacion regional)</td><td>$2.20 / 1M tokens</td><td>Bedrock ListFoundationModelAgreementOffers</td></tr>
+                <tr><td>Bedrock Claude Sonnet 5</td><td>Output tokens (invocacion regional)</td><td>$11.00 / 1M tokens</td><td>Bedrock ListFoundationModelAgreementOffers</td></tr>
                 <tr><td>AgentCore Runtime</td><td>CPU</td><td>$0.0895 / vCPU-hora</td><td><a href="https://aws.amazon.com/es/bedrock/agentcore/pricing/">Pagina oficial</a></td></tr>
                 <tr><td>AgentCore Runtime</td><td>Memory</td><td>$0.00945 / GB-hora</td><td><a href="https://aws.amazon.com/es/bedrock/agentcore/pricing/">Pagina oficial</a></td></tr>
                 <tr><td>AgentCore Gateway</td><td>API Invocations (ListTools, InvokeTool, Ping)</td><td>$0.005 / 1,000 invocaciones</td><td><a href="https://aws.amazon.com/es/bedrock/agentcore/pricing/">Pagina oficial</a></td></tr>
@@ -228,12 +228,12 @@
                 <tr class="category-row"><td colspan="6">Amazon Bedrock (Claude Sonnet 5)</td></tr>
                 <tr>
                     <td>Bedrock</td><td>Input tokens (1.5K/msg)</td>
-                    <td>1.5M tok = $3.00</td><td>6M tok = $12.00</td><td>15M tok = $30.00</td>
+                    <td>1.5M tok = $3.30</td><td>6M tok = $13.20</td><td>15M tok = $33.00</td>
                     <td><span class="tag tag-dominant">Dominante</span></td>
                 </tr>
                 <tr>
                     <td>Bedrock</td><td>Output tokens (500/msg)</td>
-                    <td>500K tok = $5.00</td><td>2M tok = $20.00</td><td>5M tok = $50.00</td>
+                    <td>500K tok = $5.50</td><td>2M tok = $22.00</td><td>5M tok = $55.00</td>
                     <td><span class="tag tag-dominant">Dominante</span></td>
                 </tr>
 
@@ -315,9 +315,9 @@
 
                 <tr class="total-row">
                     <td colspan="2">Total Estimado Mensual</td>
-                    <td>$9.37</td>
-                    <td>$37.29</td>
-                    <td>$93.08</td>
+                    <td>$10.17</td>
+                    <td>$40.49</td>
+                    <td>$101.08</td>
                     <td></td>
                 </tr>
             </tbody>
@@ -326,8 +326,9 @@
         <div class="section-title">Analisis de Costos</div>
         <div class="text-block">
             <ul>
-                <li>Los tokens de Bedrock (Claude Sonnet 5) representan aproximadamente el 86% del costo total. Los output tokens ($10/1M) son 5x mas caros que los input tokens ($2/1M).</li>
-                <li>AgentCore Memory es el segundo componente de costo (~12%), principalmente por las operaciones de retrieval ($0.50/1K) y almacenamiento long-term ($0.75/1K records).</li>
+                <li>Los tokens de Bedrock (Claude Sonnet 5) representan aproximadamente el 87% del costo total. Los output tokens ($11/1M) son 5x mas caros que los input tokens ($2.20/1M).</li>
+                <li>Las tarifas usadas corresponden a invocacion regional en us-east-1 con el inference profile us.anthropic.claude-sonnet-5. El inference profile global.anthropic.claude-sonnet-5 tiene tarifas 10% menores ($2.00 input / $10.00 output) a cambio de enrutamiento sin restriccion geografica.</li>
+                <li>AgentCore Memory es el segundo componente de costo (~11%), principalmente por las operaciones de retrieval ($0.50/1K) y almacenamiento long-term ($0.75/1K records).</li>
                 <li>AgentCore Runtime cobra solo por CPU activo (I/O wait es gratis), lo que reduce significativamente el costo vs. compute tradicional.</li>
                 <li>Lambda, API Gateway, DynamoDB, CloudFront, S3, ECR y Cognito combinados representan aproximadamente el 1% del costo total.</li>
                 <li>El costo escala linealmente con el numero de mensajes. Duplicar mensajes duplica el costo de Bedrock y AgentCore.</li>
@@ -385,8 +386,8 @@
     </div>
 
     <div class="footer">
-        <p>AWS LaunchPad | Estimacion de Costos | Generado: 2026-08-12 | SA: Rayih Bou</p>
-        <p>Precios consultados via AWS Pricing API y <a href="https://aws.amazon.com/es/bedrock/agentcore/pricing/">pagina oficial de AgentCore</a>. AWS LaunchPad - Cost Estimation.</p>
+        <p>AWS LaunchPad | Estimacion de Costos | Generado: 2026-08-13 | SA: Rayih Bou</p>
+        <p>Precios consultados via AWS Pricing API, Bedrock ListFoundationModelAgreementOffers (offer-2ykemehpsyf7g) y <a href="https://aws.amazon.com/es/bedrock/agentcore/pricing/">pagina oficial de AgentCore</a>. AWS LaunchPad - Cost Estimation.</p>
     </div>
 </body>
 </html>

@@ -20,6 +20,12 @@ if (!adminEmail) {
     hostedZoneId: app.node.tryGetContext('hostedZoneId'),
     zoneName: app.node.tryGetContext('zoneName'),
     enableCrossAccount: app.node.tryGetContext('enableCrossAccount') === 'true',
+    acceptAnthropicTerms: app.node.tryGetContext('acceptAnthropicTerms') === 'true',
+    companyName: app.node.tryGetContext('companyName'),
+    companyWebsite: app.node.tryGetContext('companyWebsite'),
+    intendedUsers: app.node.tryGetContext('intendedUsers'),
+    industryOption: app.node.tryGetContext('industryOption'),
+    useCases: app.node.tryGetContext('useCases'),
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
       region: process.env.CDK_DEFAULT_REGION,

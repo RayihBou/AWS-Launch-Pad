@@ -35,15 +35,12 @@ if [[ ! "$LANGUAGE" =~ ^(en|es|pt)$ ]]; then
   LANGUAGE="en"
 fi
 
-# Prompt for model ID
-while true; do
-  read -p "$(echo -e ${YELLOW}Bedrock model ID [us.anthropic.claude-sonnet-5]: ${NC})" MODEL_ID
-  MODEL_ID=${MODEL_ID:-us.anthropic.claude-sonnet-5}
-  if [[ "$MODEL_ID" =~ ^[A-Za-z0-9._:/-]+$ ]]; then
-    break
-  fi
-  echo -e "${RED}Invalid model ID. Allowed characters: letters, digits, and . _ : / -${NC}"
-done
+# Bedrock model ID (not prompted; override with the MODEL_ID environment variable)
+MODEL_ID="${MODEL_ID:-us.anthropic.claude-sonnet-5}"
+if [[ ! "$MODEL_ID" =~ ^[A-Za-z0-9._:/-]+$ ]]; then
+  echo -e "${RED}Invalid MODEL_ID '$MODEL_ID'. Allowed characters: letters, digits, and . _ : / -${NC}"
+  exit 1
+fi
 
 # Prompt for cross-account
 read -p "$(echo -e ${YELLOW}Enable cross-account visibility? \(y/n\) [n]: ${NC})" CROSS_ACCOUNT
@@ -74,21 +71,208 @@ REGION="${REGION:-us-east-1}"
 
 LOCAL_IMAGE="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$LOCAL_REPO:latest"
 
+# ----------------------------------------------------------------------------
+# Bedrock model access preflight
+# Runs before any build or deploy so a missing model agreement fails in
+# seconds instead of after a ~15 minute CDK deployment.
+# ----------------------------------------------------------------------------
+
+# Base model ID for the model access APIs (regional/global prefix removed)
+BASE_MODEL_ID="$MODEL_ID"
+for prefix in "us." "eu." "au." "global."; do
+  if [[ "$BASE_MODEL_ID" == "$prefix"* ]]; then
+    BASE_MODEL_ID="${BASE_MODEL_ID#"$prefix"}"
+    break
+  fi
+done
+
+json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  printf '%s' "$s"
+}
+
+# 0 = model access ready, 1 = access missing, 2 = API call failed
+model_access_state() {
+  local raw auth ent agr reg
+  raw=$(aws bedrock get-foundation-model-availability \
+    --model-id "$BASE_MODEL_ID" \
+    --region "$REGION" \
+    --query '[authorizationStatus,entitlementAvailability,agreementAvailability.status,regionAvailability]' \
+    --output text 2>/dev/null) || return 2
+  read -r auth ent agr reg <<< "$raw"
+  MODEL_ACCESS_DETAIL="authorization=$auth entitlement=$ent agreement=$agr region=$reg"
+  if [[ "$auth" == "AUTHORIZED" && "$ent" == "AVAILABLE" && "$agr" == "AVAILABLE" && "$reg" == "AVAILABLE" ]]; then
+    return 0
+  fi
+  return 1
+}
+
 echo ""
-echo -e "${GREEN}[1/8] Installing dependencies...${NC}"
+echo -e "${GREEN}[1/9] Verifying Bedrock model access...${NC}"
+echo "  Account: $ACCOUNT_ID | Region: $REGION"
+echo "  Model: $MODEL_ID (base: $BASE_MODEL_ID)"
+
+# AWS CLI version check: the model access APIs require aws-cli 2.27.42 or newer
+REQUIRED_CLI_VERSION="2.27.42"
+AWS_CLI_VERSION=$(aws --version 2>&1 | awk '{print $1}' | cut -d/ -f2)
+if [[ "$(printf '%s\n%s\n' "$REQUIRED_CLI_VERSION" "$AWS_CLI_VERSION" | sort -V | head -n1)" != "$REQUIRED_CLI_VERSION" ]]; then
+  echo -e "${YELLOW}  Warning: AWS CLI $AWS_CLI_VERSION detected. Version $REQUIRED_CLI_VERSION or newer is required${NC}"
+  echo -e "${YELLOW}  for the Bedrock model access APIs. Update with: pip install --upgrade awscli${NC}"
+fi
+
+MODEL_ACCESS_DETAIL=""
+ACCESS_STATE=0
+model_access_state || ACCESS_STATE=$?
+
+if [[ "$ACCESS_STATE" -eq 2 ]]; then
+  echo -e "${RED}  Could not query model availability for '$BASE_MODEL_ID' in $REGION.${NC}"
+  echo -e "${RED}  Check that the model ID is valid in this region and that your credentials${NC}"
+  echo -e "${RED}  allow bedrock:GetFoundationModelAvailability, then run ./setup.sh again.${NC}"
+  exit 1
+fi
+
+if [[ "$ACCESS_STATE" -eq 0 ]]; then
+  echo -e "${GREEN}  Model access confirmed ($MODEL_ACCESS_DETAIL)${NC}"
+else
+  echo ""
+  echo -e "${YELLOW}  Model access is not enabled yet. Anthropic models require accepting the${NC}"
+  echo -e "${YELLOW}  use case terms form once per account before they can be invoked.${NC}"
+  echo "  Current status: $MODEL_ACCESS_DETAIL"
+  echo ""
+
+  read -p "$(echo -e ${YELLOW}Company name: ${NC})" COMPANY_NAME
+  while [[ -z "$COMPANY_NAME" ]]; do
+    read -p "$(echo -e ${RED}Company name is required: ${NC})" COMPANY_NAME
+  done
+
+  read -p "$(echo -e ${YELLOW}Company website \(https://...\): ${NC})" COMPANY_WEBSITE
+  while [[ -z "$COMPANY_WEBSITE" ]]; do
+    read -p "$(echo -e ${RED}Company website is required: ${NC})" COMPANY_WEBSITE
+  done
+
+  echo -e "${YELLOW}  Intended users: 0) Internal  1) External  2) Internal and External${NC}"
+  read -p "$(echo -e ${YELLOW}Select intended users \(0/1/2\) [0]: ${NC})" INTENDED_USERS
+  INTENDED_USERS=${INTENDED_USERS:-0}
+  if [[ ! "$INTENDED_USERS" =~ ^[012]$ ]]; then
+    echo -e "${RED}  Invalid selection. Using 0 (Internal).${NC}"
+    INTENDED_USERS="0"
+  fi
+
+  read -p "$(echo -e ${YELLOW}Industry \(e.g. Technology, Financial Services, Healthcare, Public Sector, Other\) [Technology]: ${NC})" INDUSTRY_OPTION
+  INDUSTRY_OPTION=${INDUSTRY_OPTION:-Technology}
+  OTHER_INDUSTRY_OPTION=""
+  if [[ "$INDUSTRY_OPTION" == "Other" ]]; then
+    read -p "$(echo -e ${YELLOW}Describe your industry: ${NC})" OTHER_INDUSTRY_OPTION
+  fi
+
+  read -p "$(echo -e ${YELLOW}Use cases [Internal cloud operations assistant for monitoring and troubleshooting AWS infrastructure]: ${NC})" USE_CASES
+  USE_CASES=${USE_CASES:-"Internal cloud operations assistant for monitoring and troubleshooting AWS infrastructure"}
+
+  FORM_DATA_JSON=$(printf '{"companyName":"%s","companyWebsite":"%s","intendedUsers":"%s","industryOption":"%s","otherIndustryOption":"%s","useCases":"%s"}' \
+    "$(json_escape "$COMPANY_NAME")" \
+    "$(json_escape "$COMPANY_WEBSITE")" \
+    "$(json_escape "$INTENDED_USERS")" \
+    "$(json_escape "$INDUSTRY_OPTION")" \
+    "$(json_escape "$OTHER_INDUSTRY_OPTION")" \
+    "$(json_escape "$USE_CASES")")
+  FORM_DATA_B64=$(printf '%s' "$FORM_DATA_JSON" | base64 | tr -d '\n')
+
+  echo ""
+  echo "  Submitting use case form..."
+  if ! aws bedrock put-use-case-for-model-access \
+    --form-data "$FORM_DATA_B64" \
+    --region "$REGION" > /dev/null; then
+    echo -e "${RED}  Failed to submit the use case form. Ensure your credentials allow${NC}"
+    echo -e "${RED}  bedrock:PutUseCaseForModelAccess and try again.${NC}"
+    exit 1
+  fi
+
+  echo "  Requesting model agreement..."
+  OFFER_TOKEN=$(aws bedrock list-foundation-model-agreement-offers \
+    --model-id "$BASE_MODEL_ID" \
+    --offer-type PUBLIC \
+    --region "$REGION" \
+    --query 'offers[0].offerToken' \
+    --output text 2>/dev/null || true)
+  if [[ -z "$OFFER_TOKEN" || "$OFFER_TOKEN" == "None" ]]; then
+    echo -e "${RED}  No public offer found for '$BASE_MODEL_ID' in $REGION.${NC}"
+    echo -e "${RED}  Enable the model manually at:${NC}"
+    echo -e "${RED}  https://$REGION.console.aws.amazon.com/bedrock/home?region=$REGION#/modelaccess${NC}"
+    exit 1
+  fi
+
+  if ! aws bedrock create-foundation-model-agreement \
+    --model-id "$BASE_MODEL_ID" \
+    --offer-token "$OFFER_TOKEN" \
+    --region "$REGION" > /dev/null; then
+    echo -e "${RED}  Failed to create the model agreement. Ensure your credentials allow${NC}"
+    echo -e "${RED}  bedrock:CreateFoundationModelAgreement and try again.${NC}"
+    exit 1
+  fi
+
+  echo "  Agreement submitted. Waiting for propagation (up to 3 minutes)..."
+  ACCESS_DEADLINE=$((SECONDS + 180))
+  BACKOFF=5
+  ACCESS_STATE=1
+  while (( SECONDS < ACCESS_DEADLINE )); do
+    sleep "$BACKOFF"
+    ACCESS_STATE=0
+    model_access_state || ACCESS_STATE=$?
+    if [[ "$ACCESS_STATE" -eq 0 ]]; then
+      break
+    fi
+    echo "    Still pending ($MODEL_ACCESS_DETAIL) - retrying in ${BACKOFF}s..."
+    BACKOFF=$(( BACKOFF < 30 ? BACKOFF + 5 : 30 ))
+  done
+
+  if [[ "$ACCESS_STATE" -ne 0 ]]; then
+    echo -e "${RED}  Model access is still not active after 3 minutes.${NC}"
+    echo "  Last status: $MODEL_ACCESS_DETAIL"
+    echo -e "${RED}  Verify the request at:${NC}"
+    echo -e "${RED}  https://$REGION.console.aws.amazon.com/bedrock/home?region=$REGION#/modelaccess${NC}"
+    echo -e "${RED}  then run ./setup.sh again.${NC}"
+    exit 1
+  fi
+
+  echo -e "${GREEN}  Model access granted ($MODEL_ACCESS_DETAIL)${NC}"
+fi
+
+# Minimal invocation check: confirms the model can actually be called
+echo "  Testing model invocation..."
+PING_ERROR=$(aws bedrock-runtime converse \
+  --model-id "$MODEL_ID" \
+  --messages '[{"role":"user","content":[{"text":"ping"}]}]' \
+  --inference-config '{"maxTokens":10}' \
+  --region "$REGION" 2>&1 >/dev/null) && PING_OK=1 || PING_OK=0
+
+if [[ "$PING_OK" -ne 1 ]]; then
+  echo -e "${RED}  Model invocation failed for '$MODEL_ID' in $REGION.${NC}"
+  echo "  $PING_ERROR"
+  echo -e "${RED}  Confirm the inference profile is available in $REGION and that model${NC}"
+  echo -e "${RED}  access is enabled at:${NC}"
+  echo -e "${RED}  https://$REGION.console.aws.amazon.com/bedrock/home?region=$REGION#/modelaccess${NC}"
+  echo -e "${RED}  Aborting before deployment. Run ./setup.sh again once resolved.${NC}"
+  exit 1
+fi
+echo -e "${GREEN}  Model invocation confirmed${NC}"
+
+echo ""
+echo -e "${GREEN}[2/9] Installing dependencies...${NC}"
 npm install --silent
 
-echo -e "${GREEN}[2/8] Installing frontend dependencies...${NC}"
+echo -e "${GREEN}[3/9] Installing frontend dependencies...${NC}"
 cd frontend && npm install --silent && cd ..
 
-echo -e "${GREEN}[3/8] Building frontend (initial)...${NC}"
+echo -e "${GREEN}[4/9] Building frontend (initial)...${NC}"
 cd frontend && npm run build && cd ..
 
-echo -e "${GREEN}[4/8] Bootstrapping CDK...${NC}"
+echo -e "${GREEN}[5/9] Bootstrapping CDK...${NC}"
 echo "  Account: $ACCOUNT_ID | Region: $REGION"
 npx cdk bootstrap aws://$ACCOUNT_ID/$REGION --app ""
 
-echo -e "${GREEN}[5/8] Pulling agent image to local ECR...${NC}"
+echo -e "${GREEN}[6/9] Pulling agent image to local ECR...${NC}"
 # Create ECR repo if it doesn't exist
 aws ecr describe-repositories --repository-names $LOCAL_REPO --region $REGION > /dev/null 2>&1 || \
   aws ecr create-repository --repository-name $LOCAL_REPO --region $REGION > /dev/null
@@ -112,10 +296,10 @@ if [[ "$CROSS_ACCOUNT" =~ ^[yY]$ ]]; then
   CDK_ARGS+=(-c "enableCrossAccount=true")
 fi
 
-echo -e "${GREEN}[6/8] Deploying AWS LaunchPad...${NC}"
+echo -e "${GREEN}[7/9] Deploying AWS LaunchPad...${NC}"
 npx cdk deploy "${CDK_ARGS[@]}" --require-approval never --outputs-file outputs.json
 
-echo -e "${GREEN}[7/8] Configuring frontend with stack outputs...${NC}"
+echo -e "${GREEN}[8/9] Configuring frontend with stack outputs...${NC}"
 USER_POOL_ID=$(node -e "console.log(require('./outputs.json').LaunchPadStack.UserPoolId)")
 USER_POOL_CLIENT_ID=$(node -e "console.log(require('./outputs.json').LaunchPadStack.UserPoolClientId)")
 API_ENDPOINT=$(node -e "console.log(require('./outputs.json').LaunchPadStack.ApiEndpoint)")
@@ -136,7 +320,7 @@ export VITE_AWS_REGION=$REGION
 export VITE_LANGUAGE=$LANGUAGE
 cd frontend && npm run build && cd ..
 
-echo -e "${GREEN}[8/8] Uploading frontend to S3...${NC}"
+echo -e "${GREEN}[9/9] Uploading frontend to S3...${NC}"
 aws s3 sync frontend/dist/ s3://$BUCKET_NAME/ --delete --region $REGION
 aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*" --region us-east-1 > /dev/null 2>&1
 
