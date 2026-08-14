@@ -1,7 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 """AWS LaunchPad Agent - BedrockAgentCoreApp + Strands SDK + MCP Gateway + boto3 tools."""
-import os, re, logging, base64, time
+import os, re, logging, base64, time, json, uuid
 from datetime import datetime, timedelta
 
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
@@ -70,12 +70,17 @@ COMPLEX QUERIES: When a user asks for a broad analysis (e.g. "analyze all securi
 IAM SAFETY: IAM tools are READ-ONLY. You can list users, roles, policies, groups, and simulate permissions. You CANNOT create, delete, or modify IAM resources. If asked to make IAM changes, provide the AWS CLI commands or console steps instead.
 AWS SUPPORT: Support API requires Business or Enterprise support plan. If the support tools fail, provide the AWS CLI commands to create/manage cases instead (e.g. aws support create-case). Always suggest the appropriate severity level and category.
 REMEDIATION GUIDANCE: When security assessments find issues or disabled services, ALWAYS provide: (1) explanation of the risk, (2) the exact AWS CLI command to remediate, (3) estimated monthly cost of enabling the service using pricing tools or your knowledge (e.g. "GuardDuty: ~$4/mes por millon de eventos"), (4) console steps as alternative. Format CLI commands in code blocks ready to copy. Before any CLI commands, add this note: "Puedes ejecutar estos comandos en AWS CloudShell (icono de terminal en la barra superior de la consola AWS) o en tu terminal local con AWS CLI configurado." The user will execute them, not the agent.
-HTML REPORTS: When the user mentions "reporte", "report", "HTML", or asks to generate a document, you MUST call generate_html_report as the LAST tool call. This is mandatory — never respond with only text when a report is requested.
-- If the conversation ALREADY has analysis data from previous messages, use that data directly with generate_html_report. Do NOT call analysis tools again.
+HTML REPORTS: Reports are built INCREMENTALLY with three tools. When the user mentions "reporte", "report", "HTML", or asks to generate a document, you MUST build it with this exact three-step flow. This is mandatory — never respond with only text when a report is requested.
+- Step 1: call start_report(title) once. It returns a short report_id.
+- Step 2: call add_report_section(report_id, title, content, commands) ONCE PER SECTION, in the order the sections must appear in the document. Exactly one section per tool call.
+- Step 3: call finalize_report(report_id) as the LAST tool call. It returns the report URL, which you MUST include in your response.
+- NEVER try to emit the whole report in a single tool call and NEVER pack several sections into one add_report_section call. Emitting the full document at once exhausts the output token budget and the report is lost. Building it section by section is what makes long reports possible.
+- content is the HTML body of that one section (paragraphs, lists, tables, spans with tag-positive / tag-negative / tag-warning). commands is a JSON array of CLI command strings, e.g. ["aws guardduty list-detectors"]; the tool renders them with copy buttons automatically. Do NOT include metadata (date, account) - the footer handles that.
+- PER-SECTION SIZE LIMITS (enforced by the tool, not suggestions): keep content around 1500 characters and never above 6000; maximum 25 commands per section. If a section grows past that, split it into two sections and call add_report_section again.
+- There is no practical limit on how many sections a report can have (hard cap 40), so prefer several focused sections over a few huge ones. Rank findings by severity and state how many you omitted if you leave any out.
+- If add_report_section returns an error (unknown report_id, oversized content), fix the input and retry that single section. Never restart the whole report because of one section.
+- If the conversation ALREADY has analysis data from previous messages, use that data directly to build the sections. Do NOT call analysis tools again.
 - If the conversation has NO prior analysis data, follow the PHASED REPORT STRATEGY below.
-- Pass sections as JSON array where each section has title, content (HTML with paragraphs, lists, and tables for detail), and commands (array of CLI strings). The tool builds the HTML and adds copy buttons automatically.
-- HARD LIMITS (never exceed, these are enforced budgets not suggestions): maximum 8 sections per report; maximum 1500 characters per section content field; maximum 10 findings per report (rank by severity, keep the top 10, and state how many were omitted).
-- If the analysis exceeds these limits, consolidate: group related findings into a single row of a table instead of adding sections, and summarize the remainder as a count.
 - NEVER repeat inside the report the text you already delivered in the chat. The report carries the structured detail; your chat response is a two or three sentence summary plus the report link.
 - When mentioning AWS services in HTML reports, add hyperlinks to the AWS Console: https://{REGION}.console.aws.amazon.com/SERVICE/home?region={REGION}
 - For specific resources, link directly: e.g. https://{REGION}.console.aws.amazon.com/ec2/home?region={REGION}#SecurityGroups:group-id=sg-xxx
@@ -90,7 +95,7 @@ Phase 1b - Extended security (max 3 additional calls):
   - Use IAM MCP tools (list_users, get_credential_report) — users without MFA, old access keys, excessive policies
   - Use Network MCP tools (describe_security_groups or similar) — open security groups, permissive NACLs, missing flow logs
   Do NOT call individual services separately when a consolidated tool exists. Total max: 7 tool calls for data collection.
-Phase 2 - Generate DETAILED HTML report with generate_html_report. The report MUST include:
+Phase 2 - Generate the DETAILED HTML report with the incremental flow (start_report, then one add_report_section call per section, then finalize_report). The report MUST include:
   - A summary section with overall security posture score and key metrics
   - One section per security domain analyzed (Security Services, S3, RDS, etc.)
   - For each finding: description of the risk, affected resources, severity level, impact explanation
@@ -106,7 +111,7 @@ HANDLING LARGE ACCOUNTS: If GetSecurityFindings returns many findings:
   - Group findings by category (e.g., "S3 Public Access", "Encryption", "Network").
   - Include a count summary (e.g., "47 findings: 3 Critical, 12 High, 32 Medium") and detail the top 10.
   - Do NOT try to list every finding — summarize patterns instead.
-IMPORTANT: If a tool call fails or times out, SKIP it and generate the report with whatever data you already have. Never retry a failed tool in the same request. After calling generate_html_report, include the report link in your response to the user.
+IMPORTANT: If a tool call fails or times out, SKIP it and generate the report with whatever data you already have. Never retry a failed tool in the same request. After calling finalize_report, include the report link it returned in your response to the user.
 You MUST respond in {LANG_NAMES.get(LANGUAGE, 'English')}. When responding in Spanish, ALWAYS use proper accents/tildes (á, é, í, ó, ú, ñ) on every word that requires them. Examples: información, configuración, análisis, también, está, aquí, diagnóstico, código, región."""
 
 # --- Lazy-init boto3 clients ---
@@ -217,38 +222,178 @@ document.querySelectorAll('pre').forEach(pre=>{{
 </body>
 </html>'''
 
-@tool
-def generate_html_report(title: str, sections: str) -> str:
-    """Generate an HTML report with AWS Dark Theme and return a viewable URL. The sections parameter is a JSON string with an array of section objects. Each section has: title (string), content (string - short HTML with tables, lists, or text), and optionally commands (array of CLI command strings to show with copy buttons). Example: [{"title":"Servicios","content":"<table><tr><th>Servicio</th><th>Estado</th></tr><tr><td>GuardDuty</td><td><span class='tag-positive'>Activo</span></td></tr></table>","commands":["aws guardduty enable-detector"]}]. Keep each section concise. Do NOT include metadata (date, account) - the footer handles that."""
-    import json as j
-    from datetime import datetime
+# --- Incremental HTML report builder ---
+# Reports are assembled one section per tool call: the model never emits the whole
+# document in a single response, which removes the output token limit by design.
+REPORT_STATE_PREFIX = 'reports-state/'
+MAX_REPORT_SECTIONS = 40        # abuse guard: hard cap on sections per report
+MAX_SECTION_CONTENT = 6000      # abuse guard: hard cap on HTML characters per section
+MAX_SECTION_COMMANDS = 25       # abuse guard: hard cap on CLI commands per section
+MAX_REPORT_TITLE = 200
+MAX_FINALIZED_CACHE = 50
+
+# In-process state: fast path for section accumulation and idempotency for finalize_report.
+# S3 (reports-state/ prefix) is the durable copy in case the runtime recycles mid-report.
+_report_state = {}
+_finalized_reports = {}
+
+COPY_BTN = ("<button class='copy-btn' onclick='copyCode(this)'><svg width='14' height='14' viewBox='0 0 24 24' "
+            "fill='none' stroke='currentColor' stroke-width='2'><rect x='9' y='9' width='13' height='13' rx='2'/>"
+            "<path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'/></svg>Copiar</button>")
+
+def _valid_report_id(report_id):
+    """Report ids are model-supplied, so keep them safe to embed in an S3 key."""
+    return bool(report_id) and bool(re.fullmatch(r'[A-Za-z0-9_-]{4,32}', str(report_id).strip()))
+
+def _clean_report_title(title):
+    return re.sub(r'\s+', ' ', str(title or '')).strip()[:MAX_REPORT_TITLE]
+
+def _state_key(report_id):
+    return f"{REPORT_STATE_PREFIX}{str(report_id).strip()}.json"
+
+def _save_report_state(state):
+    _report_state[state['report_id']] = state
     try:
-        secs = j.loads(sections) if isinstance(sections, str) else sections
-    except:
-        secs = [{"title": "Reporte", "content": sections}]
-    body = ""
-    for s in secs:
+        aws('s3').put_object(Bucket=UPLOADS_BUCKET, Key=_state_key(state['report_id']),
+                             Body=json.dumps(state).encode('utf-8'), ContentType='application/json')
+    except Exception as e:
+        # In-memory state still works for the current runtime process.
+        logger.warning(f"Report state {state['report_id']} not persisted to S3: {e}")
+
+def _load_report_state(report_id):
+    report_id = str(report_id).strip()
+    if report_id in _report_state:
+        return _report_state[report_id]
+    try:
+        obj = aws('s3').get_object(Bucket=UPLOADS_BUCKET, Key=_state_key(report_id))
+        state = json.loads(obj['Body'].read().decode('utf-8'))
+        state.setdefault('report_id', report_id)
+        state.setdefault('sections', [])
+        _report_state[report_id] = state
+        return state
+    except Exception as e:
+        logger.info(f"Report state {report_id} not readable from S3: {e}")
+        return None
+
+def _delete_report_state(report_id):
+    report_id = str(report_id).strip()
+    _report_state.pop(report_id, None)
+    try:
+        aws('s3').delete_object(Bucket=UPLOADS_BUCKET, Key=_state_key(report_id))
+    except Exception as e:
+        logger.warning(f"Report state {report_id} not deleted from S3: {e}")
+
+def _parse_commands(commands):
+    """Accept a JSON array, a newline-separated string, or an already-parsed list."""
+    if not commands:
+        return []
+    if isinstance(commands, (list, tuple)):
+        items = list(commands)
+    else:
+        raw = str(commands).strip()
+        items = []
+        if raw.startswith('['):
+            try:
+                parsed = json.loads(raw)
+                items = parsed if isinstance(parsed, list) else [raw]
+            except Exception:
+                items = raw.splitlines()
+        else:
+            items = raw.splitlines()
+    return [str(c) for c in items if str(c).strip()]
+
+def _render_commands(cmds):
+    """Render CLI commands as copy-to-clipboard blocks, grouping a comment with its command."""
+    out, i = '', 0
+    while i < len(cmds):
+        cmd = cmds[i]
+        if cmd.strip().startswith('#') and i + 1 < len(cmds) and not cmds[i + 1].strip().startswith('#'):
+            out += f"<div class='code-wrapper'><code>{cmd}\n{cmds[i + 1]}</code>{COPY_BTN}</div>\n"
+            i += 2
+        elif not cmd.strip():
+            i += 1
+        else:
+            out += f"<div class='code-wrapper'><code>{cmd}</code>{COPY_BTN}</div>\n"
+            i += 1
+    return out
+
+@tool
+def start_report(title: str) -> str:
+    """Start a new incremental HTML report and return its report_id. Call this FIRST when the user asks for a report, then call add_report_section once per section, and finalize_report at the end. Never build a whole report in a single tool call."""
+    if not title or not title.strip():
+        return 'Error: title is required to start a report.'
+    title = _clean_report_title(title)
+    report_id = uuid.uuid4().hex[:8]
+    state = {'report_id': report_id, 'title': title, 'sections': [],
+             'created': datetime.now().isoformat(timespec='seconds')}
+    _save_report_state(state)
+    return (f"Report {report_id} started with title '{title}'. Now call add_report_section(report_id='{report_id}', ...) "
+            f"once per section (one section per call, max {MAX_REPORT_SECTIONS}), then finalize_report(report_id='{report_id}').")
+
+@tool
+def add_report_section(report_id: str, title: str, content: str, commands: str = '') -> str:
+    """Add ONE section to a report started with start_report. content is the HTML body of that single section (paragraphs, lists, tables); keep it around 1500 characters and never above 6000 - split into another section instead. commands is a JSON array of AWS CLI command strings (e.g. ["aws guardduty list-detectors"]) rendered with copy buttons automatically; newline-separated commands are also accepted. Call this tool once per section, never with several sections at once."""
+    if not _valid_report_id(report_id):
+        return 'Error: invalid report_id. Call start_report first and reuse the report_id it returns.'
+    if report_id in _finalized_reports:
+        return (f"Error: report {report_id} was already finalized and cannot be modified. "
+                f"Call start_report again if you need a new report.")
+    state = _load_report_state(report_id)
+    if not state:
+        return f"Error: report {report_id} not found or expired. Call start_report to create a new report."
+    if len(state['sections']) >= MAX_REPORT_SECTIONS:
+        return (f"Error: report {report_id} already has the maximum of {MAX_REPORT_SECTIONS} sections. "
+                f"Call finalize_report(report_id='{report_id}') now.")
+    if not content or not content.strip():
+        return 'Error: content is required and cannot be empty.'
+    if len(content) > MAX_SECTION_CONTENT:
+        return (f"Error: section content is {len(content)} characters, over the {MAX_SECTION_CONTENT} limit. "
+                f"Split it into two smaller sections and call add_report_section again for each one.")
+    cmds = _parse_commands(commands)
+    if len(cmds) > MAX_SECTION_COMMANDS:
+        return (f"Error: {len(cmds)} commands in one section, over the {MAX_SECTION_COMMANDS} limit. "
+                f"Keep the most relevant ones or split the section.")
+    state['sections'].append({'title': _clean_report_title(title or ''), 'content': content, 'commands': cmds})
+    _save_report_state(state)
+    count = len(state['sections'])
+    remaining = MAX_REPORT_SECTIONS - count
+    return (f"Section {count} added to report {report_id} ({count} section{'s' if count != 1 else ''} so far, "
+            f"{remaining} slots left). Add the next section or call finalize_report(report_id='{report_id}') when done.")
+
+@tool
+def finalize_report(report_id: str) -> str:
+    """Assemble a report started with start_report into the final HTML document, upload it and return the viewable URL. Call this as the LAST tool call, after adding every section with add_report_section, and include the returned link in your response."""
+    if not _valid_report_id(report_id):
+        return 'Error: invalid report_id. Call start_report first and reuse the report_id it returns.'
+    done = _finalized_reports.get(report_id)
+    if done:
+        # Idempotent: a second finalize returns the URL produced by the first one.
+        return f"Reporte generado: [{done['title']}]({done['url']})"
+    state = _load_report_state(report_id)
+    if not state:
+        return (f"Error: report {report_id} not found or expired. Call start_report and add the sections again "
+                f"with add_report_section.")
+    sections = state.get('sections') or []
+    if not sections:
+        return (f"Error: report {report_id} has no sections yet. Call add_report_section at least once "
+                f"before finalize_report.")
+    title = state.get('title') or 'Reporte'
+    body = ''
+    for s in sections:
         body += f"<h2 class='section-title'>{s.get('title','')}</h2>\n"
         body += f"<div class='card'>{s.get('content','')}</div>\n"
-        cmds = s.get('commands', [])
-        i = 0
-        while i < len(cmds):
-            cmd = cmds[i]
-            # Group comment lines with the next actual command
-            if cmd.strip().startswith('#') and i + 1 < len(cmds) and not cmds[i + 1].strip().startswith('#'):
-                grouped = cmd + '\n' + cmds[i + 1]
-                body += f"<div class='code-wrapper'><code>{grouped}</code><button class='copy-btn' onclick='copyCode(this)'><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='9' y='9' width='13' height='13' rx='2'/><path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'/></svg>Copiar</button></div>\n"
-                i += 2
-            elif cmd.strip() == '':
-                i += 1
-            else:
-                body += f"<div class='code-wrapper'><code>{cmd}</code><button class='copy-btn' onclick='copyCode(this)'><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='9' y='9' width='13' height='13' rx='2'/><path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'/></svg>Copiar</button></div>\n"
-                i += 1
+        body += _render_commands(s.get('commands', []))
     html = HTML_TEMPLATE.format(title=title, content=body, date=datetime.now().strftime('%Y-%m-%d %H:%M'))
-    key = f"reports/{datetime.now().strftime('%Y%m%d%H%M%S')}-{title.replace(' ','-')[:50]}.html"
+    slug = re.sub(r'[^A-Za-z0-9-]', '-', title.replace(' ', '-'))[:50].strip('-') or 'reporte'
+    key = f"reports/{datetime.now().strftime('%Y%m%d%H%M%S')}-{slug}.html"
     s3 = aws('s3')
     s3.put_object(Bucket=UPLOADS_BUCKET, Key=key, Body=html.encode('utf-8'), ContentType='text/html')
     url = s3.generate_presigned_url('get_object', Params={'Bucket': UPLOADS_BUCKET, 'Key': key}, ExpiresIn=86400)
+    if len(_finalized_reports) >= MAX_FINALIZED_CACHE:
+        _finalized_reports.pop(next(iter(_finalized_reports)), None)
+    _finalized_reports[report_id] = {'title': title, 'url': url, 'key': key}
+    _delete_report_state(report_id)
+    logger.info(f"Report {report_id} finalized with {len(sections)} sections -> {key}")
     return f"Reporte generado: [{title}]({url})"
 
 # --- boto3 tools ---
@@ -556,7 +701,7 @@ aws cloudformation create-stack-set --stack-set-name LaunchPadAccess --template-
 aws cloudformation create-stack-instances --stack-set-name LaunchPadAccess --deployment-targets OrganizationalUnitIds=YOUR_OU_ID --regions {REGION}"""
     return f"CloudFormation Template (save as launchpad-role.yaml):\n```yaml\n{template}\n```\n\nOption A - Single account:\n```\n{single_cmd}\n```\n\nOption B - All accounts via StackSet:\n```\n{stackset_cmds}\n```"
 
-BOTO3_TOOLS = [generate_html_report, fetch_aws_pricing_page, list_s3_buckets, list_s3_objects, describe_ec2_instances, describe_cloudwatch_alarms, get_cloudwatch_metrics, lookup_cloudtrail_events, list_lambda_functions, get_cost_summary, list_eks_clusters, describe_eks_cluster, list_waf_web_acls, check_public_s3_buckets, check_rds_security]
+BOTO3_TOOLS = [start_report, add_report_section, finalize_report, fetch_aws_pricing_page, list_s3_buckets, list_s3_objects, describe_ec2_instances, describe_cloudwatch_alarms, get_cloudwatch_metrics, lookup_cloudtrail_events, list_lambda_functions, get_cost_summary, list_eks_clusters, describe_eks_cluster, list_waf_web_acls, check_public_s3_buckets, check_rds_security]
 if ENABLE_CROSS_ACCOUNT:
     BOTO3_TOOLS.extend([list_organization_accounts, assume_role, generate_cross_account_setup])
 

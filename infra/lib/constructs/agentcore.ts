@@ -246,12 +246,19 @@ export class LaunchpadAgentCore extends Construct {
       resources: ['*'],
     }));
 
-    // Sole write grant: generate_html_report (agent/app.py) writes the report object
-    // to the uploads bucket under the reports/ prefix and returns a presigned GET URL.
+    // Sole write grant: the incremental report tools (agent/app.py) write the report
+    // object to the uploads bucket under the reports/ prefix and return a presigned GET
+    // URL. Section state lives under reports-state/ while the report is being assembled
+    // and is deleted by finalize_report (the bucket lifecycle rule expires it anyway).
     this.runtime.addToRolePolicy(new iam.PolicyStatement({
       sid: 'ReportUploadWriteAccess',
       actions: ['s3:PutObject'],
       resources: [`arn:aws:s3:::${props.uploadsBucket}/reports/*`],
+    }));
+    this.runtime.addToRolePolicy(new iam.PolicyStatement({
+      sid: 'ReportStateAccess',
+      actions: ['s3:PutObject', 's3:GetObject', 's3:DeleteObject'],
+      resources: [`arn:aws:s3:::${props.uploadsBucket}/reports-state/*`],
     }));
 
     // Cross-account policies (only when enabled)

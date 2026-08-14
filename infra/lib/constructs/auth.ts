@@ -29,7 +29,16 @@ export class LaunchpadAuth extends Construct {
       mfa: cognito.Mfa.REQUIRED,
       mfaSecondFactor: { sms: false, otp: true },
       advancedSecurityMode: cognito.AdvancedSecurityMode.ENFORCED,
-      deletionProtection: true,
+      // The L2 UserPool defaults to RemovalPolicy.RETAIN, so both settings are
+      // declared explicitly: deletion protection would make `cdk destroy` fail
+      // on the pool, and RETAIN would leave it orphaned in the account after a
+      // successful destroy (this is what accumulated 8 stale pools). DESTROY +
+      // deletionProtection: false keep this construct consistent with the rest
+      // of the stack (DynamoDB conversations table, S3 buckets) and with the
+      // README, which states that `cdk destroy` removes all deployed resources.
+      // Trade-off: destroying the stack also deletes the Cognito user accounts.
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      deletionProtection: false,
       userInvitation: {
         emailSubject: 'Welcome to AWS LaunchPad - Your Access Credentials',
         emailBody: `<!DOCTYPE html>
