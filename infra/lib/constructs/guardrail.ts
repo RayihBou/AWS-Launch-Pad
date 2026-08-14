@@ -1,24 +1,26 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
+import * as crypto from 'crypto';
 import { Construct } from 'constructs';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
 import { deterministicName } from '../naming';
 
 export class LaunchpadGuardrail extends Construct {
   public readonly guardrailId: string;
+  /**
+   * Numeric version published by AWS::Bedrock::GuardrailVersion (GetAtt
+   * `Version`), never `DRAFT`. Consumers must enforce this exact version.
+   */
   public readonly guardrailVersion: string;
 
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
-    const guardrail = new bedrock.CfnGuardrail(this, 'Guardrail', {
-      // Guardrail names must match ^[0-9a-zA-Z-_]+$ (max 50 chars). A per-stack
-      // name avoids clashing with a guardrail orphaned by a previous deployment.
-      name: deterministicName(this, {
-        prefix: 'launchpad-guardrail',
-        separator: '-',
-        maxLength: 50,
-      }),
+    // The policy configuration is kept in its own object so it can be hashed
+    // below: AWS::Bedrock::GuardrailVersion only publishes a new version when
+    // the resource is replaced, so without a config-derived Description the
+    // stack would keep pointing at version 1 while the guardrail DRAFT evolves.
+    const guardrailConfig: Omit<bedrock.CfnGuardrailProps, 'name'> = {
       blockedInputMessaging: 'I can only assist with AWS cloud operations. This request is outside my scope.',
       blockedOutputsMessaging: 'I cannot provide this type of response. Please ask about AWS cloud operations.',
       contentPolicyConfig: {
@@ -77,10 +79,31 @@ export class LaunchpadGuardrail extends Construct {
           { type: 'CREDIT_DEBIT_CARD_NUMBER', action: 'BLOCK' },
         ],
       },
+    };
+
+    const guardrail = new bedrock.CfnGuardrail(this, 'Guardrail', {
+      // Guardrail names must match ^[0-9a-zA-Z-_]+$ (max 50 chars). A per-stack
+      // name avoids clashing with a guardrail orphaned by a previous deployment.
+      name: deterministicName(this, {
+        prefix: 'launchpad-guardrail',
+        separator: '-',
+        maxLength: 50,
+      }),
+      ...guardrailConfig,
     });
+
+    // Description update requires Replacement, so a config-derived hash makes
+    // CloudFormation publish (and hand back) a fresh version whenever any
+    // filter, topic or PII rule above changes.
+    const configHash = crypto
+      .createHash('sha256')
+      .update(JSON.stringify(guardrailConfig))
+      .digest('hex')
+      .slice(0, 12);
 
     const guardrailVersion = new bedrock.CfnGuardrailVersion(this, 'GuardrailVersion', {
       guardrailIdentifier: guardrail.attrGuardrailId,
+      description: `LaunchPad guardrail config ${configHash}`,
     });
 
     this.guardrailId = guardrail.attrGuardrailId;

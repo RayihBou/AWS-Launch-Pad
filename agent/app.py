@@ -9,9 +9,11 @@ from strands import Agent
 from strands.models import BedrockModel
 from strands.tools.mcp.mcp_client import MCPClient
 from strands.tools import tool
+from strands.types.exceptions import MaxTokensReachedException
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.client.stdio import stdio_client, StdioServerParameters
 import boto3
+from botocore.config import Config as BotocoreConfig
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("launchpad")
@@ -24,6 +26,13 @@ MEMORY_ID = os.environ.get('MEMORY_ID', '')
 GUARDRAIL_ID = os.environ.get('GUARDRAIL_ID', '')
 GUARDRAIL_VERSION = os.environ.get('GUARDRAIL_VERSION', '')
 LANG_NAMES = {'en': 'English', 'es': 'Spanish', 'pt': 'Portuguese'}
+
+# Actionable message returned when the model hits its output token budget mid-response.
+MAX_TOKENS_MSG = {
+    'en': "The response hit the model output token limit before it could finish, so it was discarded. Please retry asking for less detail: fewer sections, only the critical findings, or split the request into two parts.",
+    'es': "La respuesta alcanzó el límite de tokens de salida del modelo antes de terminar, por lo que se descartó. Vuelve a intentarlo pidiendo menos detalle: menos secciones, solo los hallazgos críticos, o divide la solicitud en dos partes.",
+    'pt': "A resposta atingiu o limite de tokens de saída do modelo antes de terminar, portanto foi descartada. Tente novamente pedindo menos detalhe: menos seções, apenas os achados críticos, ou divida a solicitação em duas partes.",
+}
 
 def strip_emojis(text):
     text = re.sub(r'[\U0001F000-\U0001FFFF\u2600-\u27BF\u2B50\u2705\u274C\u26A0\u2714\u2716\u25AA-\u25FE\u2B06-\u2B07\u2934-\u2935\u23E9-\u23FA\u200D\uFE0F]+', '', text)
@@ -65,6 +74,9 @@ HTML REPORTS: When the user mentions "reporte", "report", "HTML", or asks to gen
 - If the conversation ALREADY has analysis data from previous messages, use that data directly with generate_html_report. Do NOT call analysis tools again.
 - If the conversation has NO prior analysis data, follow the PHASED REPORT STRATEGY below.
 - Pass sections as JSON array where each section has title, content (HTML with paragraphs, lists, and tables for detail), and commands (array of CLI strings). The tool builds the HTML and adds copy buttons automatically.
+- HARD LIMITS (never exceed, these are enforced budgets not suggestions): maximum 8 sections per report; maximum 1500 characters per section content field; maximum 10 findings per report (rank by severity, keep the top 10, and state how many were omitted).
+- If the analysis exceeds these limits, consolidate: group related findings into a single row of a table instead of adding sections, and summarize the remainder as a count.
+- NEVER repeat inside the report the text you already delivered in the chat. The report carries the structured detail; your chat response is a two or three sentence summary plus the report link.
 - When mentioning AWS services in HTML reports, add hyperlinks to the AWS Console: https://{REGION}.console.aws.amazon.com/SERVICE/home?region={REGION}
 - For specific resources, link directly: e.g. https://{REGION}.console.aws.amazon.com/ec2/home?region={REGION}#SecurityGroups:group-id=sg-xxx
 PHASED REPORT STRATEGY for security reports (or any broad report):
@@ -92,7 +104,7 @@ HANDLING DISABLED SERVICES: If CheckSecurityServices reveals that Security Hub, 
 HANDLING LARGE ACCOUNTS: If GetSecurityFindings returns many findings:
   - Focus ONLY on CRITICAL and HIGH severity findings.
   - Group findings by category (e.g., "S3 Public Access", "Encryption", "Network").
-  - Include a count summary (e.g., "47 findings: 3 Critical, 12 High, 32 Medium") and detail the top 15.
+  - Include a count summary (e.g., "47 findings: 3 Critical, 12 High, 32 Medium") and detail the top 10.
   - Do NOT try to list every finding — summarize patterns instead.
 IMPORTANT: If a tool call fails or times out, SKIP it and generate the report with whatever data you already have. Never retry a failed tool in the same request. After calling generate_html_report, include the report link in your response to the user.
 You MUST respond in {LANG_NAMES.get(LANGUAGE, 'English')}. When responding in Spanish, ALWAYS use proper accents/tildes (á, é, í, ó, ú, ñ) on every word that requires them. Examples: información, configuración, análisis, también, está, aquí, diagnóstico, código, región."""
@@ -633,10 +645,28 @@ def _init_local_mcp():
 
 def create_agent(token=None):
     _init_local_mcp()
+    # Guardrail is only attached by BedrockModel when BOTH guardrail_id and guardrail_version
+    # are present in the config (see BedrockModel.format_request), so both are passed together.
+    guardrail_cfg = {
+        'guardrail_id': GUARDRAIL_ID,
+        'guardrail_version': GUARDRAIL_VERSION or 'DRAFT',
+        'guardrail_trace': 'enabled',
+    } if GUARDRAIL_ID else {}
     model = BedrockModel(model_id=MODEL_ID, streaming=False,
-                         guardrail_config={'guardrailIdentifier': GUARDRAIL_ID, 'guardrailVersion': GUARDRAIL_VERSION} if GUARDRAIL_ID else None,
-                         boto3_session=boto3.Session(region_name=REGION),
-                         max_retries=6)
+                         boto_session=boto3.Session(region_name=REGION),
+                         boto_client_config=BotocoreConfig(
+                             retries={'max_attempts': 6, 'mode': 'adaptive'},
+                             read_timeout=300,
+                         ),
+                         # Sonnet 5 always runs adaptive thinking and those tokens are billed
+                         # against the output budget, so the cap must leave room for both the
+                         # reasoning blocks and a full HTML report payload.
+                         max_tokens=64000,
+                         additional_request_fields={
+                             'thinking': {'type': 'adaptive'},
+                             'output_config': {'effort': 'medium'},
+                         },
+                         **guardrail_cfg)
     all_tools = list(BOTO3_TOOLS) + list(_local_mcp_tools)
     gw_client = None
     # Gateway MCP (knowledge, pricing, cloudwatch, cloudtrail) - per request (needs token)
@@ -686,13 +716,27 @@ def handle_attachment(prompt, attachment):
         doc_fmt = fmt_map.get(mime) or ext_map.get(ext, 'pdf')
         content_blocks.append({'document': {'format': doc_fmt, 'name': name, 'source': {'bytes': data}}})
 
+    # Sonnet 5 rejects `temperature` with a ValidationException ("temperature is deprecated
+    # for this model"), so only maxTokens is sent. The guardrail is applied here too, otherwise
+    # attachments would bypass the content filtering the agent path enforces.
+    converse_kwargs = {}
+    if GUARDRAIL_ID:
+        converse_kwargs['guardrailConfig'] = {
+            'guardrailIdentifier': GUARDRAIL_ID,
+            'guardrailVersion': GUARDRAIL_VERSION or 'DRAFT',
+        }
     r = aws('bedrock-runtime').converse(
         modelId=MODEL_ID,
         messages=[{'role': 'user', 'content': content_blocks}],
         system=[{'text': SYSTEM}],
-        inferenceConfig={'maxTokens': 4096, 'temperature': 0.3},
+        inferenceConfig={'maxTokens': 8192},
+        **converse_kwargs,
     )
-    return r['output']['message']['content'][0]['text'], None  # Converse result
+    # The first block can be reasoningContent (adaptive thinking), so concatenate only text blocks
+    # instead of indexing content[0]['text'], which raises KeyError.
+    blocks = r.get('output', {}).get('message', {}).get('content', []) or []
+    answer = ''.join(b['text'] for b in blocks if isinstance(b, dict) and 'text' in b).strip()
+    return answer, None  # Converse result
 
 # --- BedrockAgentCoreApp ---
 app = BedrockAgentCoreApp()
@@ -735,6 +779,8 @@ def invoke(payload, context):
                     result = converse_result
                 else:
                     result = str(agent(text_prompt))
+            except MaxTokensReachedException:
+                raise  # handled by the entrypoint with an actionable message
             except Exception as e:
                 logger.error(f"Attachment error: {e}")
                 result = str(agent(prompt))
@@ -743,6 +789,9 @@ def invoke(payload, context):
 
         save_to_memory(mem_session, text, strip_emojis(result)[:500])
         return {'output': {'text': strip_emojis(result)}}
+    except MaxTokensReachedException as e:
+        logger.error(f"Max tokens reached: {e}")
+        return {'output': {'text': MAX_TOKENS_MSG.get(LANGUAGE, MAX_TOKENS_MSG['en'])}}
     except Exception as e:
         logger.error(f"Agent error: {e}")
         return {'output': {'text': f'Error: {e}'}}

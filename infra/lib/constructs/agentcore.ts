@@ -25,8 +25,13 @@ export interface LaunchpadAgentCoreProps {
    */
   memoryName?: string;
   enableCrossAccount?: boolean;
-  guardrailId?: string;
-  guardrailVersion?: string;
+  /** Guardrail id enforced by the agent on every model invocation. */
+  guardrailId: string;
+  /**
+   * Published guardrail version (never `DRAFT`). Required so the Runtime always
+   * enforces the exact snapshot deployed by this stack.
+   */
+  guardrailVersion: string;
 }
 
 export class LaunchpadAgentCore extends Construct {
@@ -147,8 +152,11 @@ export class LaunchpadAgentCore extends Construct {
         MEMORY_ID: this.memory.memoryId,
         UPLOADS_BUCKET: props.uploadsBucket,
         ...(props.enableCrossAccount ? { ENABLE_CROSS_ACCOUNT: 'true' } : {}),
-        ...(props.guardrailId && { GUARDRAIL_ID: props.guardrailId }),
-        ...(props.guardrailVersion && { GUARDRAIL_VERSION: props.guardrailVersion }),
+        // Both values are always injected: BedrockModel only attaches the
+        // guardrail when id and version are present, and an empty version would
+        // silently fall back to DRAFT instead of the published snapshot.
+        GUARDRAIL_ID: props.guardrailId,
+        GUARDRAIL_VERSION: props.guardrailVersion,
       },
     });
 

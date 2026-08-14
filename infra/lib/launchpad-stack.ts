@@ -137,6 +137,10 @@ export class LaunchpadStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'DistributionId', { value: frontend.distribution.distributionId });
     new cdk.CfnOutput(this, 'FrontendBucketName', { value: frontend.bucket.bucketName });
     new cdk.CfnOutput(this, 'GuardrailId', { value: guardrail.guardrailId });
+    new cdk.CfnOutput(this, 'GuardrailVersion', {
+      value: guardrail.guardrailVersion,
+      description: 'Published guardrail version enforced by the Runtime (GUARDRAIL_VERSION)',
+    });
     new cdk.CfnOutput(this, 'ApiEndpoint', { value: apiProxy.apiUrl });
     new cdk.CfnOutput(this, 'WsEndpoint', { value: websocket.wsEndpoint });
     new cdk.CfnOutput(this, 'RuntimeId', { value: agentCore.runtime.agentRuntimeId });
