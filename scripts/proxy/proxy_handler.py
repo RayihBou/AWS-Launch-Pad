@@ -20,8 +20,21 @@ UPLOADS_BUCKET = os.environ['UPLOADS_BUCKET']
 MAX_HISTORY = 50
 
 def get_user(event):
+    """Return (uid, token) for the caller.
+
+    The uid comes from the JWT claims already validated by the HTTP API Cognito authorizer.
+    The raw bearer is also returned because the Runtime needs it to open the MCP Gateway:
+    the AgentCore Gateway is configured with CUSTOM_JWT and allowedAudience =
+    userPoolClientId, so the bearer MUST be the Cognito ID token and not the access token,
+    since only the ID token carries the 'aud' claim validated against allowedAudience.
+    """
     claims = event.get('requestContext', {}).get('authorizer', {}).get('jwt', {}).get('claims', {})
-    return claims.get('email', claims.get('sub', 'anonymous'))
+    uid = claims.get('email', claims.get('sub', 'anonymous'))
+    # HTTP API v2 lowercases header names
+    headers = event.get('headers') or {}
+    auth_header = headers.get('authorization') or headers.get('Authorization') or ''
+    token = auth_header[7:] if auth_header[:7].lower() == 'bearer ' else auth_header
+    return uid, token
 
 def load_history(uid, conv_id):
     try:
@@ -63,7 +76,7 @@ def list_conversations(uid):
 def handler(event, context):
     method = event.get('requestContext', {}).get('http', {}).get('method', 'POST')
     path = event.get('requestContext', {}).get('http', {}).get('path', '')
-    uid = get_user(event)
+    uid, token = get_user(event)
     qs = event.get('queryStringParameters') or {}
     conv_id = qs.get('conversationId', '')
 
@@ -135,6 +148,11 @@ def handler(event, context):
             'input': {'text': text},
             'history': history[-20:],
             'actor_id': uid,
+            # Forwarded so the Runtime can authenticate against the MCP Gateway. On this HTTP
+            # fallback route the bearer is validated per request by the Cognito JWT authorizer,
+            # so it is always fresh (unlike the WebSocket authorizer, which only runs on
+            # $connect and therefore freezes the token at connect time).
+            'token': token,
         }
         if attachment:
             agent_payload['attachment'] = attachment
@@ -144,13 +162,18 @@ def handler(event, context):
             payload=json.dumps(agent_payload).encode(),
         )
         result = response.get('response', b'').read().decode() if hasattr(response.get('response', b''), 'read') else '{}'
-        assistant_text = json.loads(result).get('output', {}).get('text', '')
+        result_data = json.loads(result)
+        assistant_text = result_data.get('output', {}).get('text', '')
 
-        history.append({'role': 'assistant', 'text': assistant_text})
-        save_history(uid, conv_id, history, title)
+        # Same rule as the WebSocket route: a turn the guardrail blocked is not persisted, so the
+        # offending text cannot come back as history and re-trigger the guardrail on later turns.
+        if result_data.get('blocked'):
+            logger.warning(f"Guardrail blocked turn for {uid}/{conv_id}: not saving to history")
+        else:
+            history.append({'role': 'assistant', 'text': assistant_text})
+            save_history(uid, conv_id, history, title)
 
         # Include conversationId in response
-        result_data = json.loads(result)
         result_data['conversationId'] = conv_id
         return {'statusCode': 200, 'body': json.dumps(result_data)}
     except Exception as e:

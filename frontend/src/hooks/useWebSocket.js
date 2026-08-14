@@ -206,8 +206,23 @@ export default function useChat() {
       if (attachment) {
         payload.attachment = attachment;
       }
-      wsRef.current.send(JSON.stringify(payload));
-      return; // Response comes via onmessage
+      // Send a fresh ID token on every message. The token used at $connect is only
+      // seen once by the Lambda Authorizer and stays frozen for the whole connection,
+      // but the Cognito ID token expires after 1 hour while the keepalive keeps the
+      // socket alive for up to 2 hours. Without a refreshed token the downstream call
+      // to the MCP Gateway starts returning 401 past the first hour. getAuthInfo()
+      // goes through getSession(), which silently renews the token with the refresh
+      // token when needed. If it fails we still send the message: the connection-time
+      // token may remain valid and the backend keeps its own fallback.
+      try {
+        const auth = await getAuthInfo();
+        if (auth?.token) payload.idToken = auth.token;
+      } catch (e) { /* ignore: send without a refreshed token */ }
+      // If the socket dropped while refreshing the token, fall through to the HTTP path
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify(payload));
+        return; // Response comes via onmessage
+      }
     }
 
     // HTTP fallback (for when WS is not connected)

@@ -74,8 +74,17 @@ def handler(event, context):
     resource_arn = f"arn:aws:execute-api:{region}:{account}:{api_id}/{stage}/*"
 
     logger.info(f"Auth ALLOWED: {email}")
+    # The token is propagated in the authorizer context so ws_handler can forward it to the
+    # AgentCore Runtime, which needs it to open the MCP Gateway (CloudWatch, CloudTrail,
+    # Pricing, Knowledge targets). Without it the Gateway client is never created and the
+    # agent silently loses those tools.
+    # The AgentCore Gateway is configured with CUSTOM_JWT and allowedAudience =
+    # userPoolClientId, so the bearer MUST be the Cognito ID token, not the access token:
+    # only the ID token carries the 'aud' claim that the Gateway validates against
+    # allowedAudience (the access token carries 'client_id' instead). This is the same token
+    # already validated above against COGNITO_CLIENT_ID, so it is safe to forward as-is.
     return {
         'principalId': email,
         'policyDocument': {'Version': '2012-10-17', 'Statement': [{'Action': 'execute-api:Invoke', 'Effect': 'Allow', 'Resource': resource_arn}]},
-        'context': {'email': email}
+        'context': {'email': email, 'token': token}
     }

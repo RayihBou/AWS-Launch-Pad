@@ -90,6 +90,20 @@ def handler(event, context):
         auth = event.get('requestContext', {}).get('authorizer', {})
         uid = auth.get('email', 'anonymous')
 
+        # Cognito token forwarded to the Runtime so it can open the MCP Gateway.
+        # The AgentCore Gateway uses CUSTOM_JWT with allowedAudience = userPoolClientId,
+        # so this must be the Cognito ID token and not the access token: only the ID token
+        # carries the 'aud' claim the Gateway matches against allowedAudience.
+        #
+        # Prefer the token sent in the message body over the one in the authorizer context:
+        # the WebSocket authorizer only runs on $connect, so the context token is frozen at
+        # connect time. The Cognito idToken expires after 1 hour while the connection is kept
+        # alive up to 2 hours via keepalive pings, so past the first hour the frozen token
+        # would make the Gateway return 401. The client can refresh it per message; the
+        # context token stays as the fallback when the body does not carry one.
+        # The frontend sends it as 'idToken'; 'token' is accepted too for other clients.
+        token = body.get('idToken') or body.get('token') or auth.get('token', '')
+
         # Parse message
         text = body.get('input', {}).get('text', '')
         attachment = body.get('attachment')
@@ -110,9 +124,9 @@ def handler(event, context):
 
             agent_payload = {
                 'input': {'text': text},
-                'history': history[-20:], 'actor_id': uid,
+                'history': history[-20:], 'token': token, 'actor_id': uid,
             }
-            logger.info(f"Invoking agent: actor_id={uid}, text={text[:50]}, history_len={len(history)}, has_attachment={attachment is not None}")
+            logger.info(f"Invoking agent: actor_id={uid}, text={text[:50]}, history_len={len(history)}, has_attachment={attachment is not None}, has_token={bool(token)}")
             if attachment:
                 s3_key = attachment.get('s3Key')
                 if s3_key:
@@ -148,14 +162,25 @@ def handler(event, context):
                     payload=json.dumps(agent_payload).encode(),
                 )
                 result = response.get('response', b'').read().decode() if hasattr(response.get('response', b''), 'read') else '{}'
-                assistant_text = strip_emojis(json.loads(result).get('output', {}).get('text', ''))
+                agent_out = json.loads(result)
+                assistant_text = strip_emojis(agent_out.get('output', {}).get('text', ''))
+                # The agent sets `blocked` when the guardrail replaced the turn with its canned
+                # message. Such a turn is never written to DynamoDB: keeping it would feed the
+                # offending text back as history on the next requests, re-triggering the
+                # guardrail and blocking legitimate messages.
+                blocked = bool(agent_out.get('blocked'))
             finally:
                 stop.set()
                 hb.join(timeout=2)
 
-            send_to_client(api_client, connection_id, {'type': 'status', 'message': 'Guardando respuesta...'})
-            history.append({'role': 'assistant', 'text': assistant_text})
-            save_history(uid, conv_id, history, title)
+            if blocked:
+                # Neither the user turn (still only in the local list, never written) nor the
+                # block message is persisted, so the conversation window stays clean.
+                logger.warning(f"Guardrail blocked turn for {uid}/{conv_id}: not saving to history")
+            else:
+                send_to_client(api_client, connection_id, {'type': 'status', 'message': 'Guardando respuesta...'})
+                history.append({'role': 'assistant', 'text': assistant_text})
+                save_history(uid, conv_id, history, title)
 
             send_to_client(api_client, connection_id, {
                 'type': 'response',
