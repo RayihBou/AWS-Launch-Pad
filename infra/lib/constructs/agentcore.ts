@@ -32,6 +32,11 @@ export interface LaunchpadAgentCoreProps {
    * enforces the exact snapshot deployed by this stack.
    */
   guardrailVersion: string;
+  /**
+   * Full ARN of the guardrail above. Used to scope the mandatory
+   * `bedrock:ApplyGuardrail` grant to this stack's guardrail instead of `*`.
+   */
+  guardrailArn: string;
 }
 
 export class LaunchpadAgentCore extends Construct {
@@ -174,6 +179,19 @@ export class LaunchpadAgentCore extends Construct {
     this.runtime.addToRolePolicy(new iam.PolicyStatement({
       actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
       resources: ['arn:aws:bedrock:*::foundation-model/*', 'arn:aws:bedrock:*:*:inference-profile/*'],
+    }));
+
+    // Mandatory whenever the agent sends `guardrailConfig` in the Converse
+    // request (BedrockModel attaches it because GUARDRAIL_ID/GUARDRAIL_VERSION
+    // are injected above): without `bedrock:ApplyGuardrail` on the guardrail ARN
+    // every invocation fails with AccessDeniedException, not just the filtered
+    // ones. Scoped to this stack's guardrail; `bedrock:InvokeModel` alone is not
+    // enough and no extra guardrail action (GetGuardrail, ListGuardrails) is
+    // required at inference time.
+    this.runtime.addToRolePolicy(new iam.PolicyStatement({
+      sid: 'ApplyGuardrail',
+      actions: ['bedrock:ApplyGuardrail'],
+      resources: [props.guardrailArn],
     }));
 
     // Grant AgentCore Memory access

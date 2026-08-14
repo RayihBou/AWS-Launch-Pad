@@ -101,6 +101,7 @@ export class LaunchpadStack extends cdk.Stack {
       enableCrossAccount: props.enableCrossAccount,
       guardrailId: guardrail.guardrailId,
       guardrailVersion: guardrail.guardrailVersion,
+      guardrailArn: guardrail.guardrailArn,
     });
 
     // Nothing in AgentCore is created until the model access check succeeds.

@@ -12,6 +12,12 @@ export class LaunchpadGuardrail extends Construct {
    * `Version`), never `DRAFT`. Consumers must enforce this exact version.
    */
   public readonly guardrailVersion: string;
+  /**
+   * Full guardrail ARN (`arn:aws:bedrock:<region>:<account>:guardrail/<id>`).
+   * Needed to scope the `bedrock:ApplyGuardrail` grant on any principal that
+   * invokes the model with this guardrail attached.
+   */
+  public readonly guardrailArn: string;
 
   constructor(scope: Construct, id: string) {
     super(scope, id);
@@ -108,5 +114,6 @@ export class LaunchpadGuardrail extends Construct {
 
     this.guardrailId = guardrail.attrGuardrailId;
     this.guardrailVersion = guardrailVersion.attrVersion;
+    this.guardrailArn = guardrail.attrGuardrailArn;
   }
 }
