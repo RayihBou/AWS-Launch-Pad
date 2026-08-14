@@ -135,7 +135,7 @@ The solution deploys entirely within the customer's AWS account. No data leaves 
 | REST API | HTTP API Gateway (Cognito JWT auth) |
 | Auth | Amazon Cognito (MFA TOTP mandatory) |
 | Memory | AgentCore Memory (long-term facts) + DynamoDB (conversation history) |
-| Security | Bedrock Guardrails (content filtering, PII redaction) |
+| Security | Bedrock Guardrails (content filters, PII blocking) |
 | Warmup | EventBridge (5 min) + Lambda ping |
 | IaC | AWS CDK with @aws-cdk/aws-bedrock-agentcore-alpha |
 
@@ -156,7 +156,7 @@ The solution deploys entirely within the customer's AWS account. No data leaves 
 - **Least privilege IAM:** Separate policies per MCP server and tool category
 - **MCP server protections:** The IAM MCP server runs read-only by default (no flag required); the ECS MCP server runs with `ALLOW_WRITE=false` and `ALLOW_SENSITIVE_DATA=false`; `support:CreateCase` and `support:AddCommunicationToCase` were removed from the Runtime role, so AWS Support write tools are blocked at the IAM role level
 - **Single write grant:** The only write permission on the Runtime role is `s3:PutObject`, scoped to the `reports/` prefix of the uploads bucket, used by HTML report generation
-- **Content filtering:** Bedrock Guardrails blocks prompt injection, PII redaction, off-topic requests
+- **Content filtering:** A Bedrock Guardrail recalibrated against measured behavior. Content filters block sexual, violent, hate and insulting content at `HIGH`, misconduct at `MEDIUM`, and prompt injection attempts (`PROMPT_ATTACK`) at `MEDIUM` on the input. The PII policy blocks US Social Security and credit/debit card numbers; names, emails and phone numbers are intentionally **not** anonymized, since the agent audits the customer's own account and redacting principals destroyed the usefulness of IAM reports and CloudTrail actor attribution. There is **no topic classification** at all: every DENY topic was removed because intent classifiers cannot tell an IAM or credential *audit* question from a privilege *request* — the two share nearly all their vocabulary — and they blocked legitimate queries that are the agent's own domain. Conversation scope is steered by the system prompt, and write actions are prevented by the Runtime's read-only IAM role rather than by the guardrail. The guardrail is applied only to the user turn through input tagging (`guardContent`), so raw tool output is not re-evaluated on every agent loop. Accepted cost: a bare escalation request with no other harmful signal ("give me admin access") passes the guardrail; containment falls to the read-only IAM role, which cannot execute it
 - **Ephemeral file handling:** Attachments auto-delete after processing, reports expire in 24 hours
 
 ## Cost Estimation

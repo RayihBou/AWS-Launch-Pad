@@ -1005,10 +1005,17 @@ def create_agent(token=None):
     _init_local_mcp()
     # Guardrail is only attached by BedrockModel when BOTH guardrail_id and guardrail_version
     # are present in the config (see BedrockModel.format_request), so both are passed together.
+    # guardrail_latest_message makes BedrockModel wrap only the text blocks of the last user
+    # message that carries text or an image in guardContent blocks, deliberately skipping the
+    # toolResult turns (which are also role=user). Bedrock evaluates ONLY the guardContent
+    # blocks when any are present and ignores the rest of `messages`, so raw tool output —
+    # IAM policy documents, credential listings, CloudTrail events — is no longer re-evaluated
+    # on every tool use cycle, where it was tripping the guardrail topics.
     guardrail_cfg = {
         'guardrail_id': GUARDRAIL_ID,
         'guardrail_version': GUARDRAIL_VERSION or 'DRAFT',
         'guardrail_trace': 'enabled',
+        'guardrail_latest_message': True,
     } if GUARDRAIL_ID else {}
     model = BedrockModel(model_id=MODEL_ID, streaming=False,
                          boto_session=boto3.Session(region_name=REGION),
@@ -1064,7 +1071,11 @@ def handle_attachment(prompt, attachment):
         return None, full_prompt  # Signal to use agent instead of Converse
 
     # Images: use Converse API
-    content_blocks = [{'text': prompt}]
+    # Only the user text is wrapped in guardContent (GuardrailConverseContentBlock). Bedrock
+    # evaluates just the guardContent blocks when any are present, which keeps the guardrail off
+    # the conversation history and the injected system notes carried in `prompt`. The image and
+    # document blocks are left unwrapped so the attachment itself still reaches the model.
+    content_blocks = [{'guardContent': {'text': {'text': prompt}}}]
     if mime.startswith('image/'):
         fmt = mime.split('/')[-1]
         if fmt == 'jpg': fmt = 'jpeg'
@@ -1089,6 +1100,7 @@ def handle_attachment(prompt, attachment):
         converse_kwargs['guardrailConfig'] = {
             'guardrailIdentifier': GUARDRAIL_ID,
             'guardrailVersion': GUARDRAIL_VERSION or 'DRAFT',
+            'trace': 'enabled',
         }
     r = aws('bedrock-runtime').converse(
         modelId=MODEL_ID,
