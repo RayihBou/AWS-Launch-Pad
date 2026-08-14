@@ -25,7 +25,10 @@ export class McpLambdas extends Construct {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../../mcp-lambdas/cloudwatch')),
     });
     this.cloudwatchFn.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['cloudwatch:GetMetricData', 'cloudwatch:DescribeAlarms', 'cloudwatch:ListMetrics',
+      // GetMetricStatistics is the API actually called by the get_metric_statistics
+      // tool (mcp-lambdas/cloudwatch/handler.py); GetMetricData does not cover it.
+      actions: ['cloudwatch:GetMetricData', 'cloudwatch:GetMetricStatistics',
+                'cloudwatch:DescribeAlarms', 'cloudwatch:ListMetrics',
                 'logs:GetLogEvents', 'logs:DescribeLogGroups', 'logs:FilterLogEvents'],
       resources: ['*'],
     }));
@@ -48,8 +51,11 @@ export class McpLambdas extends Construct {
       resources: ['*'],
     }));
 
-    // Grant AgentCore Gateway permission to invoke all Lambdas
-    const gatewayPrincipal = new iam.ServicePrincipal('bedrock.amazonaws.com');
+    // Grant AgentCore Gateway permission to invoke all Lambdas.
+    // The Gateway calls Lambda under the bedrock-agentcore service principal;
+    // bedrock.amazonaws.com belongs to Bedrock Agents and never matches, so every
+    // Lambda MCP target failed with AccessDeniedException on invoke.
+    const gatewayPrincipal = new iam.ServicePrincipal('bedrock-agentcore.amazonaws.com');
     [this.cloudwatchFn, this.pricingFn, this.cloudtrailFn].forEach(fn => {
       fn.grantInvoke(gatewayPrincipal);
     });

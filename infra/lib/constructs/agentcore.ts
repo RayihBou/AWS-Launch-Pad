@@ -194,11 +194,16 @@ export class LaunchpadAgentCore extends Construct {
       resources: [props.guardrailArn],
     }));
 
-    // Grant AgentCore Memory access
+    // Grant AgentCore Memory access.
+    // `CreateEvent` is the real action behind the data-plane CreateEvent API used to
+    // persist conversation turns; `bedrock-agentcore:CreateMemoryEvent` does not exist
+    // in the IAM service authorization reference, so granting it silently produced
+    // AccessDeniedException on every memory write.
     this.runtime.addToRolePolicy(new iam.PolicyStatement({
       actions: [
-        'bedrock-agentcore:CreateMemoryEvent', 'bedrock-agentcore:RetrieveMemoryRecords',
-        'bedrock-agentcore:SearchMemoryRecords', 'bedrock-agentcore:GetMemory',
+        'bedrock-agentcore:CreateEvent',
+        'bedrock-agentcore:RetrieveMemoryRecords',
+        'bedrock-agentcore:GetMemory',
       ],
       resources: [this.memory.memoryArn],
     }));
@@ -217,11 +222,23 @@ export class LaunchpadAgentCore extends Construct {
         'ec2:DescribeSubnets', 'ec2:DescribeRouteTables', 'ec2:DescribeNatGateways',
         'ec2:DescribeVpcEndpoints', 'ec2:DescribeNetworkInterfaces', 'ec2:DescribeFlowLogs',
         'ec2:DescribeTransitGateways', 'ec2:DescribeVpnConnections',
+        'ec2:DescribeNetworkAcls', 'ec2:DescribeInternetGateways', 'ec2:DescribeRegions',
+        'ec2:DescribeTransitGatewayAttachments', 'ec2:DescribeTransitGatewayRouteTables',
+        'ec2:DescribeTransitGatewayPeeringAttachments', 'ec2:DescribeVolumes',
+        // Elastic Load Balancing
+        'elasticloadbalancing:DescribeLoadBalancers', 'elasticloadbalancing:DescribeListeners',
+        'elasticloadbalancing:DescribeTargetGroups', 'elasticloadbalancing:DescribeTargetHealth',
+        'elasticloadbalancing:DescribeLoadBalancerPolicies',
         // CloudWatch
         'cloudwatch:DescribeAlarms', 'cloudwatch:GetMetricStatistics', 'cloudwatch:GetMetricData', 'cloudwatch:ListMetrics',
         'logs:GetLogEvents', 'logs:DescribeLogGroups', 'logs:FilterLogEvents',
+        // CloudWatch Logs Insights (query lifecycle: start, poll, cancel)
+        'logs:StartQuery', 'logs:GetQueryResults', 'logs:StopQuery',
         // CloudTrail
         'cloudtrail:LookupEvents', 'cloudtrail:DescribeTrails', 'cloudtrail:GetTrailStatus',
+        // CloudFormation
+        'cloudformation:DescribeStacks', 'cloudformation:DescribeStackResources',
+        'cloudformation:DescribeStackEvents',
         // Lambda
         'lambda:ListFunctions', 'lambda:GetFunction',
         // Cost Explorer
@@ -231,28 +248,58 @@ export class LaunchpadAgentCore extends Construct {
         'iam:GetUser', 'iam:GetRole', 'iam:GetPolicy', 'iam:GetPolicyVersion',
         'iam:ListAttachedRolePolicies', 'iam:ListAttachedUserPolicies',
         'iam:SimulatePrincipalPolicy', 'iam:ListAccessKeys',
+        'iam:ListUserPolicies', 'iam:GetUserPolicy', 'iam:ListRolePolicies', 'iam:GetRolePolicy',
+        'iam:GetGroup', 'iam:ListAttachedGroupPolicies', 'iam:ListGroupPolicies',
+        'iam:ListGroupsForUser',
         // Security
         'securityhub:GetFindings', 'securityhub:DescribeStandards', 'securityhub:BatchGetSecurityControls',
+        'securityhub:DescribeHub', 'securityhub:GetEnabledStandards',
         'guardduty:ListFindings', 'guardduty:GetFindings', 'guardduty:ListDetectors',
-        'inspector2:ListFindings', 'inspector2:ListCoverage',
+        'guardduty:GetDetector',
+        'inspector2:ListFindings', 'inspector2:ListCoverage', 'inspector2:GetStatus',
+        'macie2:GetMacieSession', 'macie2:ListFindings', 'macie2:GetFindings', 'macie2:GetFinding',
         'access-analyzer:ListAnalyzers', 'access-analyzer:ListFindings',
         'config:DescribeConfigRules', 'config:GetComplianceSummaryByResourceType',
         // WAF
         'wafv2:ListWebACLs', 'wafv2:GetWebACL', 'wafv2:ListResourcesForWebACL',
         // RDS
         'rds:DescribeDBInstances', 'rds:DescribeDBClusters',
+        // DynamoDB
+        'dynamodb:ListTables', 'dynamodb:DescribeTable', 'dynamodb:DescribeContinuousBackups',
+        // EFS
+        'efs:DescribeFileSystems',
+        // ElastiCache
+        'elasticache:DescribeCacheClusters',
+        // API Gateway (single read action covering every GET on the control plane)
+        'apigateway:GET',
+        // CloudFront
+        'cloudfront:ListDistributions', 'cloudfront:GetDistribution',
         // ECS
         'ecs:ListClusters', 'ecs:DescribeClusters', 'ecs:ListServices', 'ecs:DescribeServices',
         'ecs:ListTasks', 'ecs:DescribeTasks', 'ecs:DescribeTaskDefinition',
         'ecr:DescribeRepositories', 'ecr:ListImages',
         // EKS
         'eks:ListClusters', 'eks:DescribeCluster', 'eks:ListNodegroups', 'eks:DescribeNodegroup',
+        'eks:ListAddons',
         // Support
         'support:DescribeCases', 'support:DescribeCommunications', 'support:DescribeServices',
         'support:DescribeSeverityLevels',
+        'support:DescribeTrustedAdvisorChecks', 'support:DescribeTrustedAdvisorCheckResult',
+        // Resource Explorer
+        'resource-explorer-2:Search', 'resource-explorer-2:ListViews',
+        'resource-explorer-2:ListResources', 'resource-explorer-2:GetView',
+        'resource-explorer-2:GetIndex',
         // Billing
         'budgets:DescribeBudgets', 'budgets:DescribeBudgetPerformanceHistory',
+        'freetier:GetFreeTierUsage',
         'compute-optimizer:GetEnrollmentStatus', 'compute-optimizer:GetRecommendationSummaries',
+        'compute-optimizer:GetEC2InstanceRecommendations',
+        'compute-optimizer:GetAutoScalingGroupRecommendations',
+        'compute-optimizer:GetEBSVolumeRecommendations',
+        'compute-optimizer:GetLambdaFunctionRecommendations',
+        'compute-optimizer:GetECSServiceRecommendations',
+        'cost-optimization-hub:ListRecommendations', 'cost-optimization-hub:GetRecommendation',
+        'cost-optimization-hub:ListEnrollmentStatuses',
         'savingsplans:DescribeSavingsPlans', 'savingsplans:DescribeSavingsPlansOfferingRates',
         'pricing:GetProducts', 'pricing:DescribeServices', 'pricing:GetAttributeValues',
         // Well-Architected
@@ -260,6 +307,7 @@ export class LaunchpadAgentCore extends Construct {
         // Network
         'networkmanager:DescribeGlobalNetworks', 'networkmanager:GetConnections',
         'network-firewall:ListFirewalls', 'network-firewall:DescribeFirewall',
+        'network-firewall:DescribeFirewallPolicy',
       ],
       resources: ['*'],
     }));
