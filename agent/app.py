@@ -284,6 +284,12 @@ MAX_FINALIZED_CACHE = 50
 _report_state = {}
 _finalized_reports = {}
 
+# Monotonic finalize counter. _finalized_reports survives across turns (it is the idempotency
+# cache), so the entrypoint cannot tell from it alone which report belongs to the current turn.
+# Each finalize stamps its sequence number, and the entrypoint compares against the value it
+# read before invoking the agent.
+_finalize_seq = 0
+
 COPY_BTN = ("<button class='copy-btn' onclick='copyCode(this)'><svg width='14' height='14' viewBox='0 0 24 24' "
             "fill='none' stroke='currentColor' stroke-width='2'><rect x='9' y='9' width='13' height='13' rx='2'/>"
             "<path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'/></svg>Copiar</button>")
@@ -435,13 +441,62 @@ def finalize_report(report_id: str) -> str:
     key = f"reports/{datetime.now().strftime('%Y%m%d%H%M%S')}-{slug}.html"
     s3 = aws('s3')
     s3.put_object(Bucket=UPLOADS_BUCKET, Key=key, Body=html.encode('utf-8'), ContentType='text/html')
-    url = s3.generate_presigned_url('get_object', Params={'Bucket': UPLOADS_BUCKET, 'Key': key}, ExpiresIn=86400)
+    # ExpiresIn is capped at 1 hour on purpose. The Runtime signs with temporary STS credentials,
+    # so the signature stops working the moment the role's session token expires, regardless of
+    # the Expires value in the URL. The previous 86400 advertised a 24h link that dies with the
+    # session token and produced AccessDenied well before the stated expiry.
+    url = s3.generate_presigned_url('get_object', Params={'Bucket': UPLOADS_BUCKET, 'Key': key}, ExpiresIn=3600)
     if len(_finalized_reports) >= MAX_FINALIZED_CACHE:
         _finalized_reports.pop(next(iter(_finalized_reports)), None)
-    _finalized_reports[report_id] = {'title': title, 'url': url, 'key': key}
+    global _finalize_seq
+    _finalize_seq += 1
+    _finalized_reports[report_id] = {'title': title, 'url': url, 'key': key, 'seq': _finalize_seq}
     _delete_report_state(report_id)
     logger.info(f"Report {report_id} finalized with {len(sections)} sections -> {key}")
     return f"Reporte generado: [{title}]({url})"
+
+# --- Report link safety net ---
+# Measured in the real deployment: finalize_report signed the URL correctly, but the link
+# travels as free text inside the tool result and the model re-typed it without the query
+# string. A reports/ object in a private bucket without the SigV4 query string is a plain
+# AccessDenied, so link delivery cannot depend on the model copying it verbatim.
+_S3_REPORT_URL_RE = re.compile(r'https?://[^\s\)\]\}"\'<>`]*?/reports/[^\s\)\]\}"\'<>`]*')
+
+
+def _finalized_since(seq):
+    """Reports finalized after the given sequence number, oldest first."""
+    return sorted((e for e in _finalized_reports.values() if e.get('seq', 0) > seq),
+                  key=lambda e: e.get('seq', 0))
+
+
+def _ensure_report_link(text, entries):
+    """Guarantee the exact presigned URL of every report finalized this turn is in the answer."""
+    for entry in entries:
+        url = entry.get('url') or ''
+        if not url or url in text:
+            continue
+        base = url.split('?', 1)[0]
+        # 1) The model kept the right object but dropped the query string.
+        fixed, hits = re.subn(re.escape(base) + r'(?!\?)', lambda _m: url, text)
+        if hits:
+            logger.warning(f"Report link repaired: restored the presigned query string on "
+                           f"{entry.get('key')} ({hits} occurrence(s) rewritten by the model)")
+            text = fixed
+            continue
+        # 2) Any other bare S3 reports/ URL without a query string is the mutilated link.
+        candidate = next((m.group(0) for m in _S3_REPORT_URL_RE.finditer(text)
+                          if '?' not in m.group(0) and 'amazonaws.com' in m.group(0)), None)
+        if candidate:
+            logger.warning(f"Report link repaired: replaced mutilated URL {candidate} with the "
+                           f"presigned URL for {entry.get('key')}")
+            text = text.replace(candidate, url)
+            continue
+        # 3) The model never mentioned the report at all: append the link.
+        logger.warning(f"Report link repaired: appended the missing presigned link for "
+                       f"{entry.get('key')}")
+        text = f"{text.rstrip()}\n\nReporte generado: [{entry.get('title') or 'Reporte'}]({url})"
+    return text
+
 
 # --- boto3 tools ---
 # Every listing tool below caps how much it inspects. A capped result must never be
@@ -901,24 +956,43 @@ def search_memories(session, query):
         # namespace_path is the hierarchical path-prefix parameter. The old namespace_prefix
         # is a DEPRECATED alias for namespace (EXACT match), so it would silently return zero
         # records once the service grace period ends.
-        records = session.search_long_term_memories(query=query, namespace_path="/", top_k=5)
-        facts = [t for t in (_record_text(r) for r in (records or [])[:5]) if t]
+        # top_k raised from 5 to 10: measured similarity scores on the live memory store are
+        # almost flat (0.3592 to 0.3667 across all records), so the ranking carries very little
+        # signal and a small top-k drops relevant user-profile facts essentially at random.
+        records = session.search_long_term_memories(query=query, namespace_path="/", top_k=10)
+        facts = [t for t in (_record_text(r) for r in (records or [])[:10]) if t]
         if facts:
             return "Known facts about this user:\n" + "\n".join(f"- {f}" for f in facts) + "\n\n"
     except Exception as e:
         logger.warning(f"Memory search error: {e}")
     return ""
 
-def save_to_memory(session, user_text, assistant_text):
+# Presigned URLs carry AWSAccessKeyId / X-Amz-Credential and x-amz-security-token in the query
+# string. Persisting them verbatim leaves usable STS material in clear text in the conversation
+# history and in AgentCore Memory, so the query string is stripped before persisting. The live
+# response returned to the user keeps the full signed URL.
+_S3_PRESIGNED_RE = re.compile(r'(https?://[^\s\)\]\}"\'<>`]*?s3[\w.\-]*\.amazonaws\.com/[^\s\)\]\}"\'<>`?]*)\?[^\s\)\]\}"\'<>`]*')
+
+
+def _strip_s3_query(text):
+    """Drop the query string of any S3 URL, leaving the base object URL."""
+    if not text:
+        return text
+    return _S3_PRESIGNED_RE.sub(lambda m: m.group(1), str(text))
+
+
+def save_to_memory(session, user_text):
     if not session:
         return
     try:
         from bedrock_agentcore.memory.constants import ConversationalMessage, MessageRole
-        # One add_turns call = one create_event. Two calls split a single exchange into two
-        # events, which breaks turn pairing for the long-term extraction strategies.
+        # Only the USER turn is persisted. Measured on the live memory store: 21 of 23 extracted
+        # records were ephemeral infrastructure facts dragged in from tool output through the
+        # assistant turn (Vite bundle sizes, timestamped CreateRole event counts), competing with
+        # the actual user profile during retrieval. The user turn is the only content that carries
+        # durable preferences and context.
         session.add_turns(messages=[
-            ConversationalMessage(user_text, MessageRole.USER),
-            ConversationalMessage(assistant_text, MessageRole.ASSISTANT),
+            ConversationalMessage(_strip_s3_query(user_text), MessageRole.USER),
         ])
     except Exception as e:
         logger.warning(f"Memory save error: {e}")
@@ -1233,6 +1307,9 @@ def invoke(payload, context):
 
     mem_session = get_memory_session(actor_id)
     gw_client = None
+    # Baseline for the report link safety net: anything finalized above this sequence number
+    # was produced by this turn.
+    finalize_baseline = _finalize_seq
     try:
         # Memory and history are resolved BEFORE the agent is built so they can be baked into
         # this invocation's system prompt. Nothing but the new user text goes into the user
@@ -1285,7 +1362,13 @@ def invoke(payload, context):
                            f"AgentCore Memory or conversation history")
             return {'output': {'text': clean}, 'blocked': True}
 
-        save_to_memory(mem_session, text, clean[:500])
+        # Deterministic link delivery: if a report was finalized in this turn, the exact presigned
+        # URL must be in the answer even when the model rewrote or omitted it.
+        clean = _ensure_report_link(clean, _finalized_since(finalize_baseline))
+
+        # The user turn is persisted with S3 query strings stripped (no STS material at rest).
+        # The full signed URL still goes back to the user in this response.
+        save_to_memory(mem_session, _strip_s3_query(text))
         return {'output': {'text': clean}}
     except MaxTokensReachedException as e:
         logger.error(f"Max tokens reached: {e}")

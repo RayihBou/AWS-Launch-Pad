@@ -5,6 +5,7 @@ import os
 import boto3
 import base64
 import logging
+import re
 import time
 import uuid
 
@@ -18,6 +19,24 @@ RUNTIME_ARN = os.environ['RUNTIME_ARN']
 QUALIFIER = os.environ.get('QUALIFIER', 'default_endpoint')
 UPLOADS_BUCKET = os.environ['UPLOADS_BUCKET']
 MAX_HISTORY = 50
+
+# Presigned URLs carry AWSAccessKeyId / X-Amz-Credential and x-amz-security-token in the query
+# string. Persisting them verbatim leaves usable STS material in clear text in the conversation
+# history, so the query string is stripped before the assistant turn is written to DynamoDB. The
+# live HTTP response keeps the full signed URL so the download link works; the signature expires
+# anyway with the Runtime role's temporary credentials, and what remains stored is only the base
+# object URL, which is not publicly readable. Same expression as agent/app.py: matches both
+# virtual-hosted (bucket.s3.region.amazonaws.com/key) and path-style
+# (s3.region.amazonaws.com/bucket/key) endpoints.
+_S3_PRESIGNED_RE = re.compile(r'(https?://[^\s\)\]\}"\'<>`]*?s3[\w.\-]*\.amazonaws\.com/[^\s\)\]\}"\'<>`?]*)\?[^\s\)\]\}"\'<>`]*')
+
+
+def _strip_s3_query(text):
+    """Drop the query string of any S3 URL, leaving the base object URL."""
+    if not text:
+        return text
+    return _S3_PRESIGNED_RE.sub(lambda m: m.group(1), str(text))
+
 
 def get_user(event):
     """Return (uid, token) for the caller.
@@ -170,7 +189,7 @@ def handler(event, context):
         if result_data.get('blocked'):
             logger.warning(f"Guardrail blocked turn for {uid}/{conv_id}: not saving to history")
         else:
-            history.append({'role': 'assistant', 'text': assistant_text})
+            history.append({'role': 'assistant', 'text': _strip_s3_query(assistant_text)})
             save_history(uid, conv_id, history, title)
 
         # Include conversationId in response

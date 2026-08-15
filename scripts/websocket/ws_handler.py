@@ -19,6 +19,23 @@ MAX_HISTORY = 50
 def strip_emojis(text):
     return re.sub(r'[\U0001F000-\U0001FFFF\u2600-\u27BF\u2B50\u2705\u274C\u26A0\u2714\u2716\u25AA-\u25FE\u2B06-\u2B07\u2934-\u2935\u23E9-\u23FA\u200D\uFE0F]+', '', text)
 
+# Presigned URLs carry AWSAccessKeyId / X-Amz-Credential and x-amz-security-token in the query
+# string. Persisting them verbatim leaves usable STS material in clear text in the conversation
+# history, so the query string is stripped before the assistant turn is written to DynamoDB. The
+# live response sent over the WebSocket keeps the full signed URL so the download link works; the
+# signature expires anyway with the Runtime role's temporary credentials, and what remains stored
+# is only the base object URL, which is not publicly readable. Same expression as agent/app.py:
+# matches both virtual-hosted (bucket.s3.region.amazonaws.com/key) and path-style
+# (s3.region.amazonaws.com/bucket/key) endpoints.
+_S3_PRESIGNED_RE = re.compile(r'(https?://[^\s\)\]\}"\'<>`]*?s3[\w.\-]*\.amazonaws\.com/[^\s\)\]\}"\'<>`?]*)\?[^\s\)\]\}"\'<>`]*')
+
+
+def _strip_s3_query(text):
+    """Drop the query string of any S3 URL, leaving the base object URL."""
+    if not text:
+        return text
+    return _S3_PRESIGNED_RE.sub(lambda m: m.group(1), str(text))
+
 def load_history(uid, conv_id):
     try:
         r = ddb.get_item(Key={'userId': uid, 'conversationId': conv_id})
@@ -179,7 +196,7 @@ def handler(event, context):
                 logger.warning(f"Guardrail blocked turn for {uid}/{conv_id}: not saving to history")
             else:
                 send_to_client(api_client, connection_id, {'type': 'status', 'message': 'Guardando respuesta...'})
-                history.append({'role': 'assistant', 'text': assistant_text})
+                history.append({'role': 'assistant', 'text': _strip_s3_query(assistant_text)})
                 save_history(uid, conv_id, history, title)
 
             send_to_client(api_client, connection_id, {

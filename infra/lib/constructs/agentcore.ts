@@ -60,12 +60,37 @@ export class LaunchpadAgentCore extends Construct {
       maxLength: 48,
     });
 
+    // Two extraction strategies, each writing to its own namespace:
+    //
+    // - SEMANTIC (built-in, namespace `/strategies/{memoryStrategyId}/actors/{actorId}`)
+    //   extracts general factual knowledge: account inventory, resource names, findings.
+    // - USER_PREFERENCE (namespace `/preferences/actors/{actorId}`) extracts how the user
+    //   wants to be served. Measured gap: the user stated "quiero las recomendaciones
+    //   priorizadas por impacto en costo" and the fact was never extracted, because the
+    //   semantic strategy only distills context-independent factual knowledge and there was
+    //   no strategy where a stated preference could land.
+    //
+    // The namespace for preferences is set explicitly instead of taking the built-in default
+    // (which is the same literal path as the semantic one, only disambiguated at runtime by
+    // {memoryStrategyId}) so the user profile lives in its own retrieval space and does not
+    // compete for top_k slots against the much larger infrastructure inventory.
+    // The semantic strategy is intentionally left on `usingBuiltInSemantic()`: its name is
+    // what identifies the strategy inside an already-deployed Memory, so changing it would
+    // drop the records extracted so far.
+    // Retrieval is unaffected: agent/app.py searches with `namespace_path="/"`, a prefix
+    // search from the root, so records from both namespaces are returned.
     this.memory = new agentcore.Memory(this, 'Memory', {
       memoryName,
       description: 'LaunchPad agent long-term memory',
       expirationDuration: cdk.Duration.days(365),
       memoryStrategies: [
         agentcore.MemoryStrategy.usingBuiltInSemantic(),
+        agentcore.MemoryStrategy.usingUserPreference({
+          name: 'preference_launchpad_cdkGen0001',
+          description: 'Capture how the user wants results delivered: prioritization criteria, '
+            + 'depth of detail, preferred services, accounts and regions of interest.',
+          namespaces: ['/preferences/actors/{actorId}'],
+        }),
       ],
     });
 
@@ -241,6 +266,11 @@ export class LaunchpadAgentCore extends Construct {
         'cloudformation:DescribeStackEvents',
         // Lambda
         'lambda:ListFunctions', 'lambda:GetFunction',
+        // Non-obvious dependency: compute-optimizer:GetLambdaFunctionRecommendations calls
+        // lambda:ListProvisionedConcurrencyConfigs on the caller's behalf. Without it the
+        // Compute Optimizer API itself fails with AccessDeniedException, even though the
+        // agent never calls this Lambda action directly.
+        'lambda:ListProvisionedConcurrencyConfigs',
         // Cost Explorer
         'ce:GetCostAndUsage', 'ce:GetCostForecast', 'ce:GetDimensionValues',
         // IAM (read-only)
@@ -299,6 +329,7 @@ export class LaunchpadAgentCore extends Construct {
         'compute-optimizer:GetLambdaFunctionRecommendations',
         'compute-optimizer:GetECSServiceRecommendations',
         'cost-optimization-hub:ListRecommendations', 'cost-optimization-hub:GetRecommendation',
+        'cost-optimization-hub:ListRecommendationSummaries',
         'cost-optimization-hub:ListEnrollmentStatuses',
         'savingsplans:DescribeSavingsPlans', 'savingsplans:DescribeSavingsPlansOfferingRates',
         'pricing:GetProducts', 'pricing:DescribeServices', 'pricing:GetAttributeValues',
