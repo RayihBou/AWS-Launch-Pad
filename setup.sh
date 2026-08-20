@@ -9,7 +9,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 # Public ECR image (pre-built arm64)
-PUBLIC_IMAGE="public.ecr.aws/t8k4q6p6/launchpad-agent:latest"
+PUBLIC_IMAGE="public.ecr.aws/s0n4i3u8/launchpad-agent:latest"
 LOCAL_REPO="launchpad-agent"
 
 echo ""
